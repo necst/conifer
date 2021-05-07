@@ -24,13 +24,13 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include "firmware/iris_GB.h"
-#include "firmware/parameters.h"
-#include "firmware/BDT.h"
+#include "ensamble.h"
+#include "parameters.h"
+#include "BDT.h"
 
 #define CHECKPOINT 5000
 
-int main(int argc, char **argv)
+/*int main(int argc, char **argv)
 {
   //load input data from text file
   std::ifstream fin("tb_data/tb_input_features.dat");
@@ -126,4 +126,32 @@ int main(int argc, char **argv)
   std::cout << "INFO: Saved inference results to file: " << RESULTS_LOG << std::endl;
 
   return 0;
+}*/
+
+#include "tree.h"
+
+int main(int argc, char* argv[]) {
+	input_arr_t sample = {  5.100000,  3.500000,  1.400000,  0.200000};
+
+	input_arr_s_t in;
+
+	std::copy(std::begin(sample), std::end(sample), std::begin(in.data));
+	in.id = 1;
+	in.dest = 2;
+
+
+	hls::stream<input_arr_s_t> input_stream;
+	input_stream << in;
+
+	hls::stream<tree_score_s_t> output_stream;
+
+	tree(input_stream, output_stream);
+
+	tree_score_s_t out;
+
+	output_stream >> out;
+
+	std::cout << out.data << std::endl;
+
+	return 0;
 }
