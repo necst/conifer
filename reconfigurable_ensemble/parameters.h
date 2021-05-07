@@ -19,6 +19,7 @@ typedef input_t threshold_t;
 
 static const int max_parallel_samples = 2;
 static const int sample_id_size = bitsizeof(max_parallel_samples);
+typedef hls::axis<input_arr_t, 0, sample_id_size, 0> input_arr_s_t;
 typedef hls::axis<score_t, 0, sample_id_size, bitsizeof(n_classes)> tree_score_s_t;
 typedef hls::axis<score_t, 0, sample_id_size, 0> class_score_s_t;
 

@@ -5,14 +5,16 @@
 ############################################################
 open_project reconfigurable_ensemble
 set_top TOP_FUNCTION
-add_files reconfigurable_ensemble/voting_station.hpp
-add_files reconfigurable_ensemble/voting_station.cpp
-add_files reconfigurable_ensemble/utils.h
-add_files reconfigurable_ensemble/parameters.h
-add_files reconfigurable_ensemble/ensamble.h
-add_files reconfigurable_ensemble/ensamble.cpp
-add_files reconfigurable_ensemble/SELECTORS.h
 add_files reconfigurable_ensemble/BDT.h
+add_files reconfigurable_ensemble/SELECTORS.h
+add_files reconfigurable_ensemble/ensamble.cpp
+add_files reconfigurable_ensemble/ensamble.h
+add_files reconfigurable_ensemble/parameters.h
+add_files reconfigurable_ensemble/tree.cpp
+add_files reconfigurable_ensemble/tree.h
+add_files reconfigurable_ensemble/utils.h
+add_files reconfigurable_ensemble/voting_station.cpp
+add_files reconfigurable_ensemble/voting_station.hpp
 add_files -tb reconfigurable_ensemble/tb_data -cflags "-Wno-unknown-pragmas" -csimflags "-Wno-unknown-pragmas"
 add_files -tb reconfigurable_ensemble/testbench.cpp -cflags "-Wno-unknown-pragmas" -csimflags "-Wno-unknown-pragmas"
 open_solution "tree" -flow_target vivado
