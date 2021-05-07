@@ -4,20 +4,22 @@
 ## Copyright 1986-2020 Xilinx, Inc. All Rights Reserved.
 ############################################################
 open_project reconfigurable_ensemble
-add_files reconfigurable_ensemble/BDT.h
-add_files reconfigurable_ensemble/ensamble.cpp
-add_files reconfigurable_ensemble/ensamble.h
-add_files reconfigurable_ensemble/parameters.h
-add_files reconfigurable_ensemble/utils.h
-add_files reconfigurable_ensemble/voting_station.cpp
+set_top TOP_FUNCTION
 add_files reconfigurable_ensemble/voting_station.hpp
-add_files -tb reconfigurable_ensemble/testbench.cpp
-add_files -tb reconfigurable_ensemble/tb_data
+add_files reconfigurable_ensemble/voting_station.cpp
+add_files reconfigurable_ensemble/utils.h
+add_files reconfigurable_ensemble/parameters.h
+add_files reconfigurable_ensemble/ensamble.h
+add_files reconfigurable_ensemble/ensamble.cpp
+add_files reconfigurable_ensemble/SELECTORS.h
+add_files reconfigurable_ensemble/BDT.h
+add_files -tb reconfigurable_ensemble/tb_data -cflags "-Wno-unknown-pragmas" -csimflags "-Wno-unknown-pragmas"
+add_files -tb reconfigurable_ensemble/testbench.cpp -cflags "-Wno-unknown-pragmas" -csimflags "-Wno-unknown-pragmas"
 open_solution "voting_station" -flow_target vivado
 set_part {xczu3eg-sbva484-1-e}
-create_clock -period 10 -name default
-#source "./reconfigurable_ensemble/voting_station/directives.tcl"
+create_clock -period 2 -name default
+source "./reconfigurable_ensemble/voting_station/directives.tcl"
 csim_design
 csynth_design
 cosim_design
-export_design -format ip_catalog
+export_design -rtl verilog -format ip_catalog

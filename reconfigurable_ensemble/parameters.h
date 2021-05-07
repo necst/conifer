@@ -3,16 +3,24 @@
 
 #include  "BDT.h"
 #include "ap_fixed.h"
+#include "utils.h"
+#include "ap_axi_sdata.h"
 
 static const int n_trees = 30;
 static const int max_depth = 3;
 static const int n_features = 4;
 static const int n_classes = 3;
+
 typedef ap_fixed<18,8> input_t;
 typedef input_t input_arr_t[n_features];
 typedef ap_fixed<18,8> score_t;
 typedef score_t score_arr_t[n_classes];
 typedef input_t threshold_t;
+
+static const int max_parallel_samples = 2;
+static const int sample_id_size = bitsizeof(max_parallel_samples);
+typedef hls::axis<score_t, 0, sample_id_size, bitsizeof(n_classes)> tree_score_s_t;
+typedef hls::axis<score_t, 0, sample_id_size, 0> class_score_s_t;
 
 static const BDT::BDT<n_trees, max_depth, n_classes, input_arr_t, score_t, threshold_t> bdt = 
 { // The struct

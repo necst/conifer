@@ -3,10 +3,11 @@
 
 #include "hls_stream.h"
 #include "parameters.h"
+#include "SELECTORS.h"
 
 void voting_station(
-	hls::stream<input_s_t>  &input_score_stream,
-	hls::stream<output_s_t> &output_score_stream
+	hls::stream<tree_score_s_t>  &input_score_stream,
+	hls::stream<class_score_s_t> &output_score_stream
 );
 
 #endif
