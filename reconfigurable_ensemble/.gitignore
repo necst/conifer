@@ -1,0 +1,16 @@
+/.apc
+/.settings
+/*/.autopilot
+/*/.debug
+/*/impl
+/*/syn
+/*/*.aps
+/*/*.directive
+/*/*.funcunit
+/*/*.log
+/*/*.json
+.cproject
+.project
+.vitis*
+hls.app
+
