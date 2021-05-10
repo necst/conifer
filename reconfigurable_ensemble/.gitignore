@@ -4,6 +4,8 @@
 /*/.debug
 /*/impl
 /*/syn
+/*/sim
+/*/csim
 /*/*.aps
 /*/*.directive
 /*/*.funcunit
