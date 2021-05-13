@@ -60,7 +60,7 @@ int main(int argc, char **argv)
   std::string iline;
   std::string pline;
   int e = 0;
-  bool curr_id = 0;
+  int curr_id = max_parallel_samples - 1;
 
   if (fin.is_open()) {
 	static hls::stream<input_arr_s_t> sample_stream[1];
@@ -93,7 +93,12 @@ int main(int argc, char **argv)
       score_arr_t score{};
       score_t tree_scores[BDT::fn_classes(n_classes) * n_trees]{};
       std::fill_n(score, 3, 0.);
-      in_pkt.id = !curr_id;
+      curr_id = (curr_id + 1) % max_parallel_samples;
+      in_pkt.id = curr_id;
+
+      int dbg_in_pkt_id = in_pkt.id.to_int();
+
+      sample_stream[0] << in_pkt;
 
       //hls-fpga-machine-learning insert top-level-function
       bank_buffer(sample_stream[0], bank_stream[0], true, true, true);
@@ -279,57 +284,56 @@ int main(int argc, char **argv)
       tree_scores[29 * n_classes + 1] = tee<tree_score_s_t, score_t>(aux_score_stream[29 * n_classes + 1], score_stream[29 * n_classes + 1]);
       tree_scores[29 * n_classes + 2] = tee<tree_score_s_t, score_t>(aux_score_stream[29 * n_classes + 2], score_stream[29 * n_classes + 2]);
       axis_crossbar<tree_score_s_t, n_trees * n_classes, n_classes>(score_stream, in_class_stream);
-      voting_station_cl0(in_class_stream[0], out_class_stream[0]);
-      voting_station_cl1(in_class_stream[1], out_class_stream[1]);
-      voting_station_cl2(in_class_stream[2], out_class_stream[2]);
-
-      for(int i = 0; i < BDT::fn_classes(n_classes); i++){
-    	class_score_s_t score;
-    	out_class_stream[i] >> score;
-        fout << score.data << " ";
+      while(!in_class_stream[0].empty()) {
+		  voting_station_cl0(in_class_stream[0], out_class_stream[0]);
       }
-      fout << std::endl;
+      while(!in_class_stream[1].empty()) {
+		  voting_station_cl1(in_class_stream[1], out_class_stream[1]);
+      }
+      while(!in_class_stream[2].empty()) {
+		  voting_station_cl2(in_class_stream[2], out_class_stream[2]);
+	  }
+
       for(int  i = 0; i < n_trees; i++){
           for(int j = 0; j < BDT::fn_classes(n_classes); j++){
             ftrees << tree_scores[i * BDT::fn_classes(n_classes) + j] << " ";
           }
       }
       ftrees << std::endl;
+    }
 
-      if (e % CHECKPOINT == 0) {
-        std::cout << "Quantized predictions" << std::endl;
-        //hls-fpga-machine-learning insert quantized
-        for(int i = 0; i < 3; i++) {
-          std::cout << score[i] << " ";
-        }
-        std::cout << std::endl;
+    // Flush the voting stations
+    for (int i = 0; i < BDT::fn_classes(n_classes); i++) {
+    	tree_score_s_t pkt;
+		pkt.last = true;
+    	in_class_stream[i] << pkt;
+    }
+
+    voting_station_cl0(in_class_stream[0], out_class_stream[0]);
+    voting_station_cl1(in_class_stream[1], out_class_stream[1]);
+    voting_station_cl2(in_class_stream[2], out_class_stream[2]);
+
+    while(
+		!out_class_stream[0].empty() &&
+		!out_class_stream[1].empty() &&
+		!out_class_stream[2].empty()
+	) {
+
+      for(int i = 0; i < BDT::fn_classes(n_classes); i++){
+    	class_score_s_t score;
+    	if (!out_class_stream[i].empty()) {
+			out_class_stream[i] >> score;
+			fout << score.data << " ";
+    	} else {
+    		fout << "NaN ";
+    	}
       }
+      fout << std::endl;
     }
     fin.close();
   } else {
 	std::cout << "CRITICAL: Unable to open input file." << std::endl;
 	return -1;
-    /*std::cout << "INFO: Unable to open input file, using default input." << std::endl;
-    //hls-fpga-machine-learning insert zero
-    input_arr_t x;
-    std::fill_n(x, 4, 0.);
-    score_arr_t score{};
-    score_t tree_scores[BDT::fn_classes(n_classes) * n_trees]{};
-    std::fill_n(score, 3, 0.);
-
-    //hls-fpga-machine-learning insert top-level-function
-    iris_GB(x, score, tree_scores);
-
-    //hls-fpga-machine-learning insert output
-    for(int i = 0; i < 3; i++) {
-      std::cout << score[i] << " ";
-    }
-    std::cout << std::endl;
-
-    //hls-fpga-machine-learning insert tb-output
-    for(int i = 0; i < 3; i++) {
-      fout << score[i] << " ";
-    }*/
   }
 
   fout.close();

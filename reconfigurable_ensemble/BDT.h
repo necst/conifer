@@ -202,6 +202,7 @@ private:
 	ap_uint<1> curr_in_i = 0;
 	score_t out_buff[2];
 	ap_uint<1> curr_out_i = 0;
+	bool empty = true;
 
 public:
 	Voting_station(score_t the_init_predict, score_t the_normalisation) {
@@ -221,7 +222,7 @@ public:
 		curr_in_i = !curr_in_i;
 
 		if (!in.last) {
-			if (in_buff[curr_in_i] != in_buff[!curr_in_i]) {
+			if (!empty && in_buff[curr_in_i] != in_buff[!curr_in_i]) {
 				// Output previous accumulator
 				output_t out;
 				out.id = in_buff[!curr_in_i];
@@ -234,6 +235,7 @@ public:
 			}
 			// Accumulate
 			out_buff[curr_out_i] += in.data;
+			empty = false;
 		} else {
 			// Output last
 			output_t out;
@@ -244,6 +246,7 @@ public:
 			// Reset
 			in_buff[0] = in_buff[1] = 0;
 			out_buff[0] = out_buff[1] = init_predict;
+			empty = true;
 		}
 	}
 
