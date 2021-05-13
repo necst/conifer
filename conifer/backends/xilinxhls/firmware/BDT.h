@@ -2,6 +2,8 @@
 #define BDT_H__
 
 #include "ap_fixed.h"
+#include "utils.h"
+#include "hls_stream.h"
 
 namespace BDT{
 
@@ -132,6 +134,120 @@ public:
         for(int j = 0; j < fn_classes(n_classes); j++){
             score[j] *= normalisation;
         }
+	}
+
+};
+
+template<class input_t, unsigned int max_parallel_samples>
+struct Bank_buffer {
+
+private:
+	input_t buffer[max_parallel_samples + 1];
+	ap_uint<bitsizeof(max_parallel_samples + 1)> curr_in  = 0;
+	ap_uint<bitsizeof(max_parallel_samples + 1)> curr_out = 0;
+	bool empty = true;
+	void capture(
+		hls::stream<input_t> &input_stream
+	) {
+		if (empty || curr_in != curr_out) {
+			input_stream >> buffer[curr_in];
+			curr_in = (curr_in + 1) % (max_parallel_samples + 1);
+			empty = false;
+		}
+	}
+	void peek(
+		hls::stream<input_t> &output_stream
+	) {
+		if (!empty) {
+			output_stream << buffer[curr_out];
+		}
+	}
+	void discard() {
+		if (!empty) {
+			curr_out = (curr_out + 1) % (max_parallel_samples + 1);
+			empty = (curr_out == curr_in);
+		}
+	}
+
+public:
+	void top_function(
+		hls::stream<input_t> &input_stream,
+		hls::stream<input_t> &output_stream,
+		bool do_capture,
+		bool do_peek,
+		bool do_discard
+	) {
+		if (do_capture) {
+			capture(input_stream);
+		}
+
+		if (do_peek) {
+			peek(output_stream);
+		}
+
+		if (do_discard) {
+			discard();
+		}
+	}
+
+};
+
+template<class input_t, class output_t, class score_t, unsigned int max_parallel_samples>
+struct Voting_station {
+
+private:
+	score_t init_predict;
+	score_t normalisation;
+	ap_uint<bitsizeof(max_parallel_samples)>  in_buff[2] = {0, 0};
+	ap_uint<1> curr_in_i = 0;
+	score_t out_buff[2];
+	ap_uint<1> curr_out_i = 0;
+	bool empty = true;
+
+public:
+	Voting_station(score_t the_init_predict, score_t the_normalisation) {
+		init_predict = the_init_predict;
+		out_buff[0] = out_buff[1] = init_predict;
+		normalisation = the_normalisation;
+
+	}
+	void top_function(
+		hls::stream<input_t> &input_stream,
+		hls::stream<output_t> &output_stream
+	) {
+		input_t in;
+
+		input_stream >> in;
+		in_buff[curr_in_i] = in.id;
+		curr_in_i = !curr_in_i;
+
+		if (!in.last) {
+			if (!empty && in_buff[curr_in_i] != in_buff[!curr_in_i]) {
+				// Output previous accumulator
+				output_t out;
+				out.id = in_buff[!curr_in_i];
+				out.data = out_buff[curr_out_i] * normalisation;
+				output_stream << out;
+				// Switch accumulator
+				curr_out_i = !curr_out_i;
+				// (Re)Initialize accumulator
+				out_buff[curr_out_i] = init_predict;
+			}
+			// Accumulate
+			out_buff[curr_out_i] += in.data;
+			empty = false;
+		} else {
+			// Output last
+			output_t out;
+			out.id = in_buff[!curr_in_i];
+			out.data = out_buff[curr_out_i] * normalisation;
+			output_stream << out;
+
+			// Reset
+			in_buff[0] = in_buff[1] = 0;
+			out_buff[0] = out_buff[1] = init_predict;
+			empty = true;
+		}
 	}
 
 };
