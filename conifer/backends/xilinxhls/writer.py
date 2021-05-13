@@ -38,12 +38,24 @@ def get_hls():
 
 def write(ensemble_dict, cfg):
 
+    if cfg.get('PDR', False) and get_hls() != 'vitis_hls':
+        print("Partial Dinamic Reconfiguration requires Xilinx Vitis HLS (Vivado HLS is not supported)")
+        sys.exit()
+
     filedir = os.path.dirname(os.path.abspath(__file__))
+
+    class_count = 1
+    for itree, trees in enumerate(ensemble_dict['trees']):
+        if len(trees) > class_count:
+            class_count = len(trees)
 
     os.makedirs('{}/firmware'.format(cfg['OutputDir']))
     os.makedirs('{}/tb_data'.format(cfg['OutputDir']))
     copyfile('{}/firmware/BDT.h'.format(filedir),
              '{}/firmware/BDT.h'.format(cfg['OutputDir']))
+    if cfg.get('PDR', False) == True:
+        copyfile('{}/firmware/utils.h'.format(filedir),
+                '{}/firmware/utils.h'.format(cfg['OutputDir']))
 
     ###################
     # myproject.cpp
@@ -55,23 +67,71 @@ def write(ensemble_dict, cfg):
     fout.write('#include "parameters.h"\n')
     fout.write('#include "{}.h"\n'.format(cfg['ProjectName']))
 
-    fout.write(
-        'void {}(input_arr_t x, score_arr_t score, score_t tree_scores[BDT::fn_classes(n_classes) * n_trees]){{\n'.format(cfg['ProjectName']))
-    fout.write('\t#pragma HLS array_partition variable=x\n')
-    fout.write('\t#pragma HLS array_partition variable=score\n')
-    fout.write('\t#pragma HLS pipeline\n')
-    fout.write('\t#pragma HLS unroll\n')
-    fout.write('\tbdt.decision_function(x, score, tree_scores);\n}')
-    fout.close()
+    if cfg.get('PDR', False) == False:
+        # Monolithic IP
+        fout.write(
+            'void {}(input_arr_t x, score_arr_t score, score_t tree_scores[BDT::fn_classes(n_classes) * n_trees]){{\n'.format(cfg['ProjectName']))
+        fout.write('\t#pragma HLS array_partition variable=x\n')
+        fout.write('\t#pragma HLS array_partition variable=score\n')
+        fout.write('\t#pragma HLS pipeline\n')
+        fout.write('\t#pragma HLS unroll\n')
+        fout.write('\tbdt.decision_function(x, score, tree_scores);}\n}')
+        fout.close()
+    else:
+        # Reconfigurable set of IPs
+        
+        # BANK BUFFER IP
+        fout.write(('void {}__bank_buffer(hls::stream<input_arr_s_t> &input_stream, hls::stream<input_arr_s_t> &output_stream, bool do_capture, '+
+                    'bool do_peek, ool do_discard){{\n').format(cfg['ProjectName']))
+        fout.write('\t#pragma HLS INTERFACE axis register port=input_stream\n')
+        fout.write('\t#pragma HLS INTERFACE axis register port=output_stream\n')
+        fout.write('\t#pragma HLS INTERFACE s_axilite register port=do_capture\n')
+        fout.write('\t#pragma HLS INTERFACE s_axilite register port=do_peek\n')
+        fout.write('\t#pragma HLS INTERFACE s_axilite register port=do_discard\n')
+        fout.write('\tstatic BDT::Bank_buffer<input_arr_s_t, max_parallel_samples> bb;\n')
+        fout.write('\tbb.top_function(input_stream, output_stream, do_capture, do_peek, do_discard);}\n')
+        fout.write('\n')
 
+        # TREE IPs
+        for itree, trees in enumerate(ensemble_dict['trees']):
+             for iclass, tree in enumerate(trees):
+                fout.write(('void {}__tree_cl{}_{}(hls::stream<input_arr_s_t> &input_stream, ' +
+                            'hls::stream<tree_score_s_t> &output_stream){{\n').format(cfg['ProjectName'], iclass, itree))
+                fout.write('\t#pragma HLS INTERFACE axis register port=input_stream\n')
+                fout.write('\t#pragma HLS INTERFACE axis register port=output_stream\n')
+                fout.write('\tinput_arr_s_t input;\n')
+                fout.write('\tinput_stream >> input;\n')
+                fout.write('\tauto output_data = bdt.trees[{}][{}].decision_function(input.data);\n'.format(itree, iclass))
+                fout.write('\ttree_score_s_t output;\n')
+                fout.write('\toutput.data = output_data;\n')
+                fout.write('\toutput.id = input.id;\n')
+                fout.write('\toutput.dest = {};\n'.format(iclass))
+                fout.write('\toutput_stream << output;}\n')
+                fout.write('\n')
+        
+        # VOTING STATION IPs
+        for iclass in range(class_count):
+            fout.write(('void {}__voting_station_cl{}(hls::stream<tree_score_s_t>  &input_score_stream, ' +
+                            'hls::stream<class_score_s_t> &output_score_stream){{\n').format(cfg['ProjectName'], iclass))
+            fout.write('\t#pragma HLS INTERFACE axis register port=input_score_stream\n')
+            fout.write('\t#pragma HLS INTERFACE axis register port=output_score_stream\n')
+            fout.write(('\tstatic BDT::Voting_station<tree_score_s_t, class_score_s_t, score_t, max_parallel_samples> '+
+                        'vs(bdt.init_predict[{}], bdt.normalisation);\n').format(iclass))
+            fout.write('\tvs.top_function(input_score_stream, output_score_stream);}\n')
+            fout.write('\n')
+    
     ###################
     # parameters.h
     ###################
 
     fout = open('{}/firmware/parameters.h'.format(cfg['OutputDir']), 'w')
     fout.write('#ifndef BDT_PARAMS_H__\n#define BDT_PARAMS_H__\n\n')
-    fout.write('#include  "BDT.h"\n')
+    fout.write('#include "BDT.h"\n')
     fout.write('#include "ap_fixed.h"\n\n')
+    if cfg.get('PDR', False) == True:
+            fout.write('#include "utils.h"\n')
+            fout.write('#include "ap_axi_sdata.h"\n\n')
+
     fout.write('static const int n_trees = {};\n'.format(
         ensemble_dict['n_trees']))
     fout.write('static const int max_depth = {};\n'.format(
@@ -87,6 +147,14 @@ def write(ensemble_dict, cfg):
     # TODO score_arr_t
     fout.write('typedef input_t threshold_t;\n\n')
 
+    if cfg.get('PDR', False) == True:
+        # TODO: Allow max_parallel_sample configuration
+        fout.write('static const int max_parallel_samples = 2;\n')
+        fout.write('static const int sample_id_size = bitsizeof(max_parallel_samples);\n')
+        fout.write('typedef hls::axis<input_arr_t, 0, sample_id_size, 0> input_arr_s_t;\n')
+        fout.write('typedef hls::axis<score_t, 0, sample_id_size, bitsizeof(n_classes)> tree_score_s_t;\n')
+        fout.write('typedef hls::axis<score_t, 0, sample_id_size, 0> class_score_s_t;\n\n')
+    
     tree_fields = ['feature', 'threshold', 'value',
                    'children_left', 'children_right', 'parent']
 
@@ -140,33 +208,53 @@ def write(ensemble_dict, cfg):
     # myproject.h
     #######################
 
-    f = open(os.path.join(filedir, 'hls-template/firmware/myproject.h'), 'r')
     fout = open(
         '{}/firmware/{}.h'.format(cfg['OutputDir'], cfg['ProjectName']), 'w')
+    fout.write('#ifndef {}_H__\n#define {}_H__\n\n'.format(cfg['ProjectName'].upper(), cfg['ProjectName'].upper()))
+    fout.write('#include "BDT.h"\n')
+    fout.write('#include "parameters.h"\n')
+    if cfg.get('PDR', False) == True:
+        fout.write('#include "hls_stream.h"\n')
 
-    for line in f.readlines():
+    if cfg.get('PDR', False) == False:
+        # Monolithic IP
+        fout.write(
+            'void {}(input_arr_t x, score_arr_t score, score_t tree_scores[BDT::fn_classes(n_classes) * n_trees]);\n'.format(cfg['ProjectName']))
+    else:
+        # Reconfigurable set of IPs
+        
+        # BANK BUFFER IP
+        fout.write(('void {}__bank_buffer(hls::stream<input_arr_s_t> &input_stream, hls::stream<input_arr_s_t> &output_stream, bool do_capture, '+
+                    'bool do_peek, ool do_discard);\n').format(cfg['ProjectName']))
 
-        if 'MYPROJECT' in line:
-            newline = line.replace(
-                'MYPROJECT', format(cfg['ProjectName'].upper()))
-        elif 'void myproject(' in line:
-            newline = 'void {}(\n'.format(cfg['ProjectName'])
-        elif 'hls-fpga-machine-learning insert args' in line:
-            newline = '\tinput_arr_t data,\n\tscore_arr_t score,\n\tscore_t tree_scores[BDT::fn_classes(n_classes) * n_trees]);'
-        # Remove some lines
+        # TREE IPs
+        for itree, trees in enumerate(ensemble_dict['trees']):
+             for iclass, tree in enumerate(trees):
+                fout.write(('void {}__tree_cl{}_{}(hls::stream<input_arr_s_t> &input_stream, ' +
+                            'hls::stream<tree_score_s_t> &output_stream);\n').format(cfg['ProjectName'], iclass, itree))
+        
+        # VOTING STATION IPs
+        class_count = 1
+        for itree, trees in enumerate(ensemble_dict['trees']):
+             if len(trees) > class_count:
+                 class_count = len(trees)
 
-        else:
-            newline = line
-        fout.write(newline)
+        for iclass in range(class_count):
+            fout.write(('void {}__voting_station_cl{}(hls::stream<tree_score_s_t>  &input_score_stream, ' +
+                            'hls::stream<class_score_s_t> &output_score_stream);\n').format(cfg['ProjectName'], iclass))
 
-    f.close()
+    fout.write('\n#endif')
     fout.close()
 
     #######################
     # myproject_test.cpp
     #######################
 
-    f = open(os.path.join(filedir, 'hls-template/myproject_test.cpp'))
+    if cfg.get('PDR', False) == False:
+        f = open(os.path.join(filedir, 'hls-template/myproject_test.cpp'))
+    else:
+        f = open(os.path.join(filedir, 'hls-template/myproject_pdr_test.cpp'))
+    
     fout = open(
         '{}/{}_test.cpp'.format(cfg['OutputDir'], cfg['ProjectName']), 'w')
 
@@ -183,14 +271,17 @@ def write(ensemble_dict, cfg):
             newline += '      input_arr_t x;\n'
             newline += '      in_end = in_begin + ({});\n'.format(
                 ensemble_dict['n_features'])
-            newline += '      std::copy(in_begin, in_end, x);\n'
+            if cfg.get('PDR', False) == False: 
+                newline += '      std::copy(in_begin, in_end, x);\n'
+            else:
+                newline += '      std::copy(in_begin, in_end, in_pkt.data);\n'
             newline += '      in_begin = in_end;\n'
             # brace-init zeros the array out because we use std=c++0x
             newline += '      score_arr_t score{};\n'
             newline += '      score_t tree_scores[BDT::fn_classes(n_classes) * n_trees]{};\n'
             # but we can still explicitly zero out if you want
             newline += '      std::fill_n(score, {}, 0.);\n'.format(
-                ensemble_dict['n_classes'])
+                ensemble_dict['n_classes'])       
         elif '//hls-fpga-machine-learning insert zero' in line:
             newline = line
             newline += '    input_arr_t x;\n'
@@ -202,8 +293,28 @@ def write(ensemble_dict, cfg):
                 ensemble_dict['n_classes'])
         elif '//hls-fpga-machine-learning insert top-level-function' in line:
             newline = line
-            top_level = indent + \
-                '{}(x, score, tree_scores);\n'.format(cfg['ProjectName'])
+            if cfg.get('PDR', False) == False: 
+                top_level = indent + \
+                    '{}(x, score, tree_scores);\n'.format(cfg['ProjectName'])
+            else:
+                top_level =     indent + 'bank_buffer(sample_stream[0], bank_stream[0], true, true, true);\n'
+                top_level +=    indent + 'axis_crossbar<input_arr_s_t, 1, n_trees * n_classes>(bank_stream, tree_stream);\n'
+                for itree, trees in enumerate(ensemble_dict['trees']):
+                    for iclass, tree in enumerate(trees):
+                        top_level +=  (indent + '{name}__tree_cl{iclass}_{itree}(' + \
+                                'tree_stream[{itree} * n_classes + {iclass}], ' + \
+                                'aux_score_stream[{itree} * n_classes + {iclass}]);\n' + \
+                            indent + 'tree_scores[{itree} * n_classes + {iclass}] = ' + \
+                                'tee<tree_score_s_t, score_t>(' + \
+                                    'aux_score_stream[{itree} * n_classes + {iclass}], ' + \
+                                    'score_stream[{itree} * n_classes + {iclass}]);\n').format(name=cfg['ProjectName'],
+                                    itree=itree,
+                                    iclass=iclass)
+                top_level +=    indent + 'axis_crossbar<tree_score_s_t, n_trees * n_classes, n_classes>(score_stream, in_class_stream);\n'
+                for iclass in range(class_count):
+                    top_level += (indent + 'while(!in_class_stream[{iclass}].empty()) {{\n' + \
+                        indent + '  voting_station_cl{iclass}(in_class_stream[{iclass}], out_class_stream[{iclass}]);\n' + \
+                        indent + '}}\n').format(iclass=iclass)
             newline += top_level
         elif '//hls-fpga-machine-learning insert predictions' in line:
             newline = line
@@ -228,6 +339,22 @@ def write(ensemble_dict, cfg):
             newline += indent + '  std::cout << score[i] << " ";\n'
             newline += indent + '}\n'
             newline += indent + 'std::cout << std::endl;\n'
+        elif '//hls-fpga-machine-learning insert final-round' in line:
+            newline = line
+            if cfg.get('PDR', False) == True:
+                for iclass in range(class_count):
+                    newline += (indent + \
+                        'voting_station_cl{iclass}(in_class_stream[{iclass}], out_class_stream[{iclass}]);\n').format(iclass=iclass)
+        elif '//hls-fpga-machine-learning insert stream-check' in line:
+            newline = line
+            if cfg.get('PDR', False) == True:
+                newline += indent
+                for iclass in range(class_count):
+                    newline += '!out_class_stream[{}].empty()'.format(iclass)
+                    if iclass < class_count - 1:
+                        newline += ' && '
+                    else:
+                        newline += '\n'
         else:
             newline = line
         fout.write(newline)
@@ -254,7 +381,10 @@ def write(ensemble_dict, cfg):
     bdtdir = os.path.abspath(os.path.join(filedir, "../bdt_utils"))
     relpath = os.path.relpath(bdtdir, start=cfg['OutputDir'])
 
-    f = open(os.path.join(filedir, 'hls-template/build_prj.tcl'), 'r')
+    if cfg.get('PDR', False) == False:
+        f = open(os.path.join(filedir, 'hls-template/build_prj.tcl'), 'r')
+    else:
+        f = open(os.path.join(filedir, 'hls-template/build_pdr_prj.tcl'), 'r')
     fout = open('{}/build_prj.tcl'.format(cfg['OutputDir']), 'w')
 
     for line in f.readlines():
@@ -272,18 +402,85 @@ def write(ensemble_dict, cfg):
         # Remove some lines
         elif ('weights' in line) or ('-tb firmware/weights' in line):
             line = ''
+        elif '##hls-fpga-machine-learning insert individual-ips' in line:
+            line = ''
+            if cfg.get('PDR', False) == True:
+                for itree, trees in enumerate(ensemble_dict['trees']):
+                    for iclass, tree in enumerate(trees): 
+                        line += 'source build_pdr_ips/tree_cl{}_{}.tcl\n'.format(iclass, itree)
+                for iclass in range(class_count):
+                    line += 'source build_pdr_ips/voting_station_cl{}.tcl\n'.format(iclass)
 
         fout.write(line)
     f.close()
     fout.close()
 
+    if cfg.get('PDR', False) == True:
+        os.mkdir('{}/build_pdr_ips'.format(cfg['OutputDir']))
+        for itree, trees in enumerate(ensemble_dict['trees']):
+            for iclass, tree in enumerate(trees): 
+                f = open(os.path.join(filedir, 'hls-template/build_pdr_ip.tcl'), 'r')
+                fout = open('{}/build_pdr_ips/tree_cl{}_{}.tcl'.format(cfg['OutputDir'], iclass, itree), 'w')
+
+                for line in f.readlines():
+                    line = line.replace('myproject', cfg['ProjectName'])
+                    line = line.replace('the_ip', 'tree_cl{}_{}'.format(iclass, itree))
+
+                    if 'set_part {xc7vx690tffg1927-2}' in line:
+                        line = 'set_part {{{}}}\n'.format(cfg['XilinxPart'])
+                    elif 'create_clock -period 5 -name default' in line:
+                        line = 'create_clock -period {} -name default\n'.format(
+                            cfg['ClockPeriod'])
+
+                    fout.write(line)
+
+                f.close()
+                fout.close()
+
+        for iclass in range(class_count):
+            f = open(os.path.join(filedir, 'hls-template/build_pdr_ip.tcl'), 'r')
+            fout = open('{}/build_pdr_ips/voting_station_cl{}.tcl'.format(cfg['OutputDir'], iclass), 'w')
+
+            for line in f.readlines():
+                line = line.replace('myproject', cfg['ProjectName'])
+                line = line.replace('the_ip', 'voting_station_cl{}'.format(iclass))
+
+                if 'set_part {xc7vx690tffg1927-2}' in line:
+                    line = 'set_part {{{}}}\n'.format(cfg['XilinxPart'])
+                elif 'create_clock -period 5 -name default' in line:
+                    line = 'create_clock -period {} -name default\n'.format(
+                        cfg['ClockPeriod'])
+
+                fout.write(line)
+
+            f.close()
+            fout.close()
+
+        f = open(os.path.join(filedir, 'hls-template/build_pdr_ip.tcl'), 'r')
+        fout = open('{}/build_pdr_ips/bank_buffer.tcl'.format(cfg['OutputDir']), 'w')
+
+        for line in f.readlines():
+            line = line.replace('myproject', cfg['ProjectName'])
+            line = line.replace('the_ip', 'bank_buffer')
+
+            if 'set_part {xc7vx690tffg1927-2}' in line:
+                line = 'set_part {{{}}}\n'.format(cfg['XilinxPart'])
+            elif 'create_clock -period 5 -name default' in line:
+                line = 'create_clock -period {} -name default\n'.format(
+                    cfg['ClockPeriod'])
+
+            fout.write(line)
+
+        f.close()
+        fout.close()
 
 def auto_config():
     config = {'ProjectName': 'my_prj',
               'OutputDir': 'my-conifer-prj',
               'Precision': 'ap_fixed<18,8>',
               'XilinxPart': 'xcvu9p-flgb2104-2L-e',
-              'ClockPeriod': '5'}
+              'ClockPeriod': '5',
+              'PDR': False}
     return config
 
 
@@ -324,6 +521,10 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
     hls_tool = get_hls()
     if hls_tool == None:
         print("No HLS in PATH. Did you source the appropriate Xilinx Toolchain?")
+        sys.exit()
+
+    if config.get('PDR', False) and hls_tool != 'vitis_hls':
+        print("Partial Dinamic Reconfiguration requires Xilinx Vitis HLS (Vivado HLS is not supported)")
         sys.exit()
 
     cmd = '{hls_tool} -f build_prj.tcl "reset={reset} csim={csim} synth={synth} cosim={cosim} export={export}"'\
