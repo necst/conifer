@@ -138,21 +138,38 @@ public:
 
 };
 
-template<class input_t, unsigned int max_parallel_samples>
+enum Bank_buffer_flag {
+	BANK_BUFFER_FLAG_CAPTURE_ENABLE		= 0,
+	BANK_BUFFER_FLAG_CAPTURE			= 1,
+	BANK_BUFFER_FLAG_PEEK_ENABLE		= 2,
+	BANK_BUFFER_FLAG_PEEK				= 3,
+	BANK_BUFFER_FLAG_DISCARD_ENABLE 	= 4,
+	BANK_BUFFER_FLAG_DISCARD			= 5,
+	BANK_BUFFER_FLAG_TRANSPARENT_ENABLE	= 6,
+	BANK_BUFFER_FLAG_TRANSPARENT		= 7
+};
+
+template<class input_t, class command_t, unsigned int max_parallel_samples, unsigned int max_bank_count>
 struct Bank_buffer {
 
 private:
+	ap_uint<bitsizeof(max_bank_count + 1)> bank_id;
 	input_t buffer[max_parallel_samples + 1];
 	ap_uint<bitsizeof(max_parallel_samples + 1)> curr_in  = 0;
 	ap_uint<bitsizeof(max_parallel_samples + 1)> curr_out = 0;
 	bool empty = true;
+	bool capture_enabled = false;
+	bool peek_enabled = false;
+	bool discard_enabled = false;
+	bool transparent_enabled = false;
 	void capture(
 		hls::stream<input_t> &input_stream
 	) {
 		if (empty || curr_in != curr_out) {
-			input_stream >> buffer[curr_in];
-			curr_in = (curr_in + 1) % (max_parallel_samples + 1);
-			empty = false;
+			if (input_stream.read_nb(buffer[curr_in])) {
+				curr_in = (curr_in + 1) % (max_parallel_samples + 1);
+				empty = false;
+			}
 		}
 	}
 	void peek(
@@ -170,23 +187,40 @@ private:
 	}
 
 public:
+	Bank_buffer(ap_uint<bitsizeof(max_bank_count + 1)> the_bank_id) {
+		bank_id = the_bank_id;
+	}
+
 	void top_function(
 		hls::stream<input_t> &input_stream,
 		hls::stream<input_t> &output_stream,
-		bool do_capture,
-		bool do_peek,
-		bool do_discard
+		hls::stream<command_t> &command_stream
 	) {
-		if (do_capture) {
+
+		command_t cmd_pkt;
+
+		if (command_stream.read_nb(cmd_pkt)) {
+			if (cmd_pkt.dest == 0 || cmd_pkt.dest == bank_id) {
+				capture_enabled		= cmd_pkt.data.get_bit(BANK_BUFFER_FLAG_CAPTURE_ENABLE) 	? cmd_pkt.data.get_bit(BANK_BUFFER_FLAG_CAPTURE) 		: capture_enabled;
+				peek_enabled		= cmd_pkt.data.get_bit(BANK_BUFFER_FLAG_PEEK_ENABLE) 		? cmd_pkt.data.get_bit(BANK_BUFFER_FLAG_PEEK)			: peek_enabled;
+				discard_enabled 	= cmd_pkt.data.get_bit(BANK_BUFFER_FLAG_DISCARD_ENABLE)		? cmd_pkt.data.get_bit(BANK_BUFFER_FLAG_DISCARD)		: discard_enabled;
+				transparent_enabled = cmd_pkt.data.get_bit(BANK_BUFFER_FLAG_TRANSPARENT_ENABLE)	? cmd_pkt.data.get_bit(BANK_BUFFER_FLAG_TRANSPARENT)	: transparent_enabled;
+			}
+		}
+
+
+		if (transparent_enabled || capture_enabled) {
 			capture(input_stream);
 		}
 
-		if (do_peek) {
+		if (transparent_enabled || peek_enabled) {
 			peek(output_stream);
+			peek_enabled = false;
 		}
 
-		if (do_discard) {
+		if (transparent_enabled || discard_enabled) {
 			discard();
+			discard_enabled = false;
 		}
 	}
 
