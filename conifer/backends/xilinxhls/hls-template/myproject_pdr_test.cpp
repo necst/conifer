@@ -96,7 +96,8 @@ int main(int argc, char **argv)
 
   if (fin.is_open()) {
     static hls::stream<input_arr_s_t> sample_stream[1];
-    static hls::stream<input_arr_s_t> bank_stream[1];
+    static hls::stream<bank_command_s_t> bank_command_stream[1];
+    static hls::stream<input_arr_s_t> bank_stream[bank_count];
     static hls::stream<input_arr_s_t> tree_stream[n_trees * n_classes];
     static hls::stream<tree_score_s_t> aux_score_stream[n_trees * n_classes];
     static hls::stream<tree_score_s_t> score_stream[n_trees * n_classes];

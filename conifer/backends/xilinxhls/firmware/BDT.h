@@ -138,21 +138,37 @@ public:
 
 };
 
-template<class input_t, unsigned int max_parallel_samples>
+enum Bank_buffer_flag {
+	BANK_BUFFER_FLAG_CAPTURE_ENABLE		= 0,
+	BANK_BUFFER_FLAG_CAPTURE			= 1,
+	BANK_BUFFER_FLAG_PEEK_ENABLE		= 2,
+	BANK_BUFFER_FLAG_PEEK				= 3,
+	BANK_BUFFER_FLAG_DISCARD_ENABLE 	= 4,
+	BANK_BUFFER_FLAG_DISCARD			= 5,
+	BANK_BUFFER_FLAG_TRANSPARENT_ENABLE	= 6,
+	BANK_BUFFER_FLAG_TRANSPARENT		= 7
+};
+
+template<class input_t, class command_t, unsigned int max_parallel_samples, unsigned int max_bank_count>
 struct Bank_buffer {
 
 private:
+	ap_uint<bitsizeof(max_bank_count + 1)> bank_id;
 	input_t buffer[max_parallel_samples + 1];
 	ap_uint<bitsizeof(max_parallel_samples + 1)> curr_in  = 0;
 	ap_uint<bitsizeof(max_parallel_samples + 1)> curr_out = 0;
 	bool empty = true;
+	bool waiting_for_out = false;
+	bool capture_enabled = false;
+	bool transparent_enabled = false;
 	void capture(
 		hls::stream<input_t> &input_stream
 	) {
 		if (empty || curr_in != curr_out) {
-			input_stream >> buffer[curr_in];
-			curr_in = (curr_in + 1) % (max_parallel_samples + 1);
-			empty = false;
+			if (input_stream.read_nb(buffer[curr_in])) {
+				curr_in = (curr_in + 1) % (max_parallel_samples + 1);
+				empty = false;
+			}
 		}
 	}
 	void peek(
@@ -170,32 +186,74 @@ private:
 	}
 
 public:
+	Bank_buffer(ap_uint<bitsizeof(max_bank_count + 1)> the_bank_id) {
+//#pragma HLS BIND_STORAGE variable=buffer type=ram_s2p
+//#pragma HLS ARRAY_PARTITION variable=buffer dim=1 factor=3 block
+		bank_id = the_bank_id;
+	}
+
 	void top_function(
 		hls::stream<input_t> &input_stream,
 		hls::stream<input_t> &output_stream,
-		bool do_capture,
-		bool do_peek,
-		bool do_discard
+		hls::stream<command_t> &command_stream
 	) {
-		if (do_capture) {
+#pragma HLS PIPELINE
+		command_t cmd_pkt;
+		bool peek_enabled = false;
+		bool discard_enabled = false;
+
+		if (command_stream.read_nb(cmd_pkt)) {
+			if (cmd_pkt.dest == 0 || cmd_pkt.dest == bank_id) {
+				ap_uint<8> cmd = cmd_pkt.data;
+				capture_enabled		= cmd.get_bit(BANK_BUFFER_FLAG_CAPTURE_ENABLE) 	    ? cmd.get_bit(BANK_BUFFER_FLAG_CAPTURE) 	: capture_enabled;
+				peek_enabled		= cmd.get_bit(BANK_BUFFER_FLAG_PEEK_ENABLE) 		? cmd.get_bit(BANK_BUFFER_FLAG_PEEK)		: peek_enabled;
+				discard_enabled 	= cmd.get_bit(BANK_BUFFER_FLAG_DISCARD_ENABLE)		? cmd.get_bit(BANK_BUFFER_FLAG_DISCARD)		: discard_enabled;
+				transparent_enabled = cmd.get_bit(BANK_BUFFER_FLAG_TRANSPARENT_ENABLE)	? cmd.get_bit(BANK_BUFFER_FLAG_TRANSPARENT)	: transparent_enabled;
+			}
+		}
+
+
+		if (transparent_enabled || capture_enabled) {
 			capture(input_stream);
 		}
 
-		if (do_peek) {
+		if (transparent_enabled || peek_enabled) {
 			peek(output_stream);
 		}
 
-		if (do_discard) {
+		if (transparent_enabled || discard_enabled) {
 			discard();
 		}
 	}
 
 };
 
-template<class input_t, class output_t, class score_t, unsigned int max_parallel_samples>
+template<class data_t>
+struct Vote_buffer {
+private:
+	data_t pkt;
+	bool engaged = false;
+public:
+	void top_function(hls::stream<data_t> &input_stream,
+			hls::stream<data_t> &output_stream,
+			bool &sig_engaged) {
+		sig_engaged = engaged;
+		if(!engaged) {
+			input_stream >> pkt;
+			engaged = true;
+		} else {
+			output_stream << pkt;
+			engaged = false;
+		}
+		sig_engaged = engaged;
+	}
+};
+
+template<int n_classes, class input_t, class output_t, class score_t, unsigned int max_parallel_samples>
 struct Voting_station {
 
 private:
+	ap_uint<bitsizeof(fn_classes(n_classes))> class_id;
 	score_t init_predict;
 	score_t normalisation;
 	ap_uint<bitsizeof(max_parallel_samples)>  in_buff[2] = {0, 0};
@@ -205,7 +263,8 @@ private:
 	bool empty = true;
 
 public:
-	Voting_station(score_t the_init_predict, score_t the_normalisation) {
+	Voting_station(ap_uint<bitsizeof(fn_classes(n_classes))> the_class_id, score_t the_init_predict, score_t the_normalisation) {
+		class_id = the_class_id;
 		init_predict = the_init_predict;
 		out_buff[0] = out_buff[1] = init_predict;
 		normalisation = the_normalisation;
@@ -215,6 +274,7 @@ public:
 		hls::stream<input_t> &input_stream,
 		hls::stream<output_t> &output_stream
 	) {
+#pragma HLS PIPELINE
 		input_t in;
 
 		input_stream >> in;
@@ -227,6 +287,10 @@ public:
 				output_t out;
 				out.id = in_buff[!curr_in_i];
 				out.data = out_buff[curr_out_i] * normalisation;
+				out.last = true;
+				out.keep = -1;
+				out.strb = 0;
+				out.dest = class_id;
 				output_stream << out;
 				// Switch accumulator
 				curr_out_i = !curr_out_i;
@@ -241,6 +305,10 @@ public:
 			output_t out;
 			out.id = in_buff[!curr_in_i];
 			out.data = out_buff[curr_out_i] * normalisation;
+			out.last = true;
+			out.keep = -1;
+			out.strb = 0;
+			out.dest = class_id;
 			output_stream << out;
 
 			// Reset
