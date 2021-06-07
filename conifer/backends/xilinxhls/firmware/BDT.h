@@ -187,8 +187,6 @@ private:
 
 public:
 	Bank_buffer(ap_uint<bitsizeof(max_bank_count + 1)> the_bank_id) {
-//#pragma HLS BIND_STORAGE variable=buffer type=ram_s2p
-//#pragma HLS ARRAY_PARTITION variable=buffer dim=1 factor=3 block
 		bank_id = the_bank_id;
 	}
 
@@ -219,10 +217,12 @@ public:
 
 		if (transparent_enabled || peek_enabled) {
 			peek(output_stream);
+			peek_enabled = false;
 		}
 
 		if (transparent_enabled || discard_enabled) {
 			discard();
+			discard_enabled = false;
 		}
 	}
 
