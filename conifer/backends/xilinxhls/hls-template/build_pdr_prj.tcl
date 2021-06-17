@@ -35,6 +35,7 @@ add_files -tb tb_data
 
 source build_pdr_ips/tree_idle.tcl
 source build_pdr_ips/vote_buffer.tcl
+source build_pdr_ips/enumerator.tcl
 ##hls-fpga-machine-learning insert individual-ips
 
 if {$opt(fastsim)} {

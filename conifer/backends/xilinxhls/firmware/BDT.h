@@ -249,6 +249,35 @@ public:
 	}
 };
 
+template<int TID_MAX, int tid_size, int n_features, class input_s_t, class output_s_t>
+struct Enumerator {
+private:
+	ap_uint<tid_size> next_tid = 0;
+public:
+	void top_function(
+		hls::stream<input_s_t> &input_stream,
+		hls::stream<output_s_t> &output_stream
+	) {
+		input_s_t in_pkt;
+		input_stream >> in_pkt;
+
+		output_s_t out_pkt;
+		for (int i = 0; i < n_features; i++) {
+			out_pkt.data[i] = in_pkt.data[i];
+		}
+		out_pkt.keep = in_pkt.keep;
+		out_pkt.strb = in_pkt.strb;
+		out_pkt.last = in_pkt.last;
+		out_pkt.user = in_pkt.user;
+		out_pkt.id   = next_tid;
+		out_pkt.dest = in_pkt.dest;
+
+		output_stream << out_pkt;
+
+		next_tid = (next_tid + 1) % (TID_MAX + 1);
+	}
+};
+
 template<int n_classes, class input_t, class output_t, class score_t, unsigned int max_parallel_samples>
 struct Voting_station {
 

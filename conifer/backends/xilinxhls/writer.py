@@ -3,6 +3,7 @@ import sys
 from shutil import copyfile
 import numpy as np
 import math
+import glob
 
 _TOOLS = {
     'vivadohls': 'vivado_hls',
@@ -49,7 +50,7 @@ def write(ensemble_dict, cfg):
             class_count = len(trees)
 
     # TODO: Flexible bank sizing
-    bank_count = math.ceil(tree_count / 16)
+    bank_count = int(cfg['Banks'])
     
 
     os.makedirs('{}/firmware'.format(cfg['OutputDir']))
@@ -83,6 +84,15 @@ def write(ensemble_dict, cfg):
     else:
         # Reconfigurable set of IPs
         
+        # ENUMERATOR
+        fout.write(('void {}__enumerator(hls::stream<idless_input_arr_s_t> &input_stream, hls::stream<input_arr_s_t> &output_stream){{\n').format(cfg['ProjectName']))
+        fout.write('\t#pragma HLS INTERFACE axis register port=input_stream\n')
+        fout.write('\t#pragma HLS INTERFACE axis register port=output_stream\n')
+        fout.write('\t#pragma HLS INTERFACE ap_ctrl_none port=return\n')
+        fout.write('\tstatic BDT::Enumerator<max_parallel_samples, sample_id_size, n_features, idless_input_arr_s_t, input_arr_s_t> en;\n')
+        fout.write('\ten.top_function(input_stream, output_stream);}\n')
+        fout.write('\n')
+
         # BANK BUFFER IP
         for ibank in range(1, bank_count + 1):
             fout.write(('void {}__bank_buffer_{}(hls::stream<input_arr_s_t> &input_stream, hls::stream<input_arr_s_t> &output_stream, '+
@@ -122,7 +132,14 @@ def write(ensemble_dict, cfg):
         fout.write('\t#pragma HLS INTERFACE axis register port=output_stream\n')
         fout.write('\t#pragma HLS INTERFACE ap_ctrl_none port=return\n')
         fout.write('\tinput_arr_s_t input;\n')
-        fout.write('\tinput_stream >> input;}\n')
+        fout.write('\tinput_stream >> input;\n')
+        fout.write('\ttree_score_s_t output;\n')
+        fout.write('\toutput.data = 0;\n')
+        fout.write('\toutput.keep = 0;\n')
+        fout.write('\toutput.strb = 0;\n')
+        fout.write('\toutput.id = input.id;\n')
+        fout.write('\toutput.dest = -1;\n')
+        fout.write('\toutput_stream << output;}\n')
         fout.write('\n')
 
         # VOTE BUFFER IP
@@ -177,11 +194,13 @@ def write(ensemble_dict, cfg):
 
     if cfg.get('PDR', False) == True:
         # TODO: Allow max_parallel_sample configuration
-        fout.write('static const int max_parallel_samples = 6;\n')
+        max_parallel_samples = 6
+        fout.write('static const int max_parallel_samples = {};\n'.format(max_parallel_samples))
         fout.write('static const int bank_count = {};\n'.format(bank_count))
         fout.write('static const int sample_id_size = bitsizeof(max_parallel_samples);\n')
         fout.write('static const int bank_address_size = bitsizeof(bank_count + 1);\n')
         fout.write('typedef hls::axis<ap_uint<8>, 0, 0, bank_address_size> bank_command_s_t;\n')
+        fout.write('typedef hls::axis<input_arr_t, 0, 0, 0> idless_input_arr_s_t;\n')
         fout.write('typedef hls::axis<input_arr_t, 0, sample_id_size, 0> input_arr_s_t;\n')
         fout.write('typedef hls::axis<score_t, 0, sample_id_size, bitsizeof(n_classes)> tree_score_s_t;\n')
         fout.write('typedef hls::axis<score_t, 0, sample_id_size, 0> class_score_s_t;\n\n')
@@ -254,6 +273,9 @@ def write(ensemble_dict, cfg):
     else:
         # Reconfigurable set of IPs
         
+        # ENUMERTOR
+        fout.write(('void {}__enumerator(hls::stream<idless_input_arr_s_t> &input_stream, hls::stream<input_arr_s_t> &output_stream);\n'.format(cfg['ProjectName'])))    
+
         # BANK BUFFER IP
         for ibank in range(1, bank_count + 1):
             fout.write(('void {}__bank_buffer_{}(hls::stream<input_arr_s_t> &input_stream, hls::stream<input_arr_s_t> &output_stream, '+
@@ -561,6 +583,94 @@ def write(ensemble_dict, cfg):
         f.close()
         fout.close()
 
+        f = open(os.path.join(filedir, 'hls-template/build_pdr_ip.tcl'), 'r')
+        fout = open('{}/build_pdr_ips/enumerator.tcl'.format(cfg['OutputDir']), 'w')
+
+        for line in f.readlines():
+            line = line.replace('myproject', cfg['ProjectName'])
+            line = line.replace('the_ip', 'enumerator')
+
+            if 'set_part {xc7vx690tffg1927-2}' in line:
+                line = 'set_part {{{}}}\n'.format(cfg['XilinxPart'])
+            elif 'create_clock -period 5 -name default' in line:
+                line = 'create_clock -period {} -name default\n'.format(
+                    cfg['ClockPeriod'])
+
+            fout.write(line)
+
+        f.close()
+        fout.close()
+    #######################
+    # build_tree_wrapper.tcl
+    #######################
+
+    if cfg.get('PDR', False) == True:
+        f = open(os.path.join(filedir, 'system-template/tree_wrapper.tcl'), 'r')
+        fout = open('{}/build_tree_wrapper.tcl'.format(cfg['OutputDir']), 'w')
+        for line in f.readlines():
+
+            precision = int(cfg['Precision'].split('<')[1].split(',')[0])
+            
+            if '## hls-fpga-machine-learning insert project-name' in line:
+                line = line.replace('## hls-fpga-machine-learning insert project-name', '{}_system'.format(cfg['ProjectName']))
+            elif '## hls-fpga-machine-learning insert project-part' in line:
+                line = line.replace('## hls-fpga-machine-learning insert project-part', cfg['XilinxPart'])
+            elif '## hls-fpga-machine-learning insert project-board' in line:
+                line = line.replace('## hls-fpga-machine-learning insert project-board', cfg['XilinxBoard'])
+            if '##project_name##' in line:
+                line = line.replace('##project_name##', cfg['ProjectName'])
+            # TODO: Manage clock
+            #elif 'create_clock -period 5 -name default' in line:
+            #    line = 'create_clock -period {} -name default\n'.format(
+            #        cfg['ClockPeriod'])
+
+            fout.write(line)
+        f.close()
+        fout.close()
+
+    #######################
+    # build_system_bd.tcl
+    #######################
+
+    if cfg.get('PDR', False) == True:
+        f = open(os.path.join(filedir, 'system-template/top_system.tcl'), 'r')
+        fout = open('{}/build_system_bd.tcl'.format(cfg['OutputDir']), 'w')
+        for line in f.readlines():
+
+            precision = int(cfg['Precision'].split('<')[1].split(',')[0])
+            
+            if '## hls-fpga-machine-learning insert project-name' in line:
+                line = line.replace('## hls-fpga-machine-learning insert project-name', '{}_system'.format(cfg['ProjectName']))
+            elif '## hls-fpga-machine-learning insert project-part' in line:
+                line = line.replace('## hls-fpga-machine-learning insert project-part', cfg['XilinxPart'])
+            elif '## hls-fpga-machine-learning insert project-board' in line:
+                line = line.replace('## hls-fpga-machine-learning insert project-board', cfg['XilinxBoard'])
+            elif '## hls-fpga-machine-learning insert sample_length' in line:
+                line = line.replace('## hls-fpga-machine-learning insert sample_length', str(int((2**math.ceil(math.log(precision, 2)))*ensemble_dict['n_features'])))
+            elif '## hls-fpga-machine-learning insert n-classes' in line:
+                line = line.replace('## hls-fpga-machine-learning insert n-classes', str(int(class_count)))
+            elif '## hls-fpga-machine-learning insert result_lenght' in line:
+                line = line.replace('## hls-fpga-machine-learning insert result_lenght', str(int(8*math.ceil(precision)/8)))
+            elif '## hls-fpga-machine-learning insert output_length' in line:
+                line = line.replace('## hls-fpga-machine-learning insert output_length', str(int(2**math.ceil(math.log(8*(math.ceil(precision)/8), 2)))))
+            elif '## hls-fpga-machine-learning insert n-banks' in line:
+                line = line.replace('## hls-fpga-machine-learning insert n-banks', str(int(bank_count)))
+            elif '## hls-fpga-machine-learning insert n-trees-per-bank' in line:
+                line = line.replace('## hls-fpga-machine-learning insert n-trees-per-bank', str(int(cfg['TreesPerBank'])))
+            elif '## hls-fpga-machine-learning insert id-length' in line:
+                line = line.replace('## hls-fpga-machine-learning insert id-length', str(int(math.ceil(math.log(int(max_parallel_samples), 2))+1)))
+            if '##project_name##' in line:
+                line = line.replace('##project_name##', cfg['ProjectName'])
+            # TODO: Manage clock
+            #elif 'create_clock -period 5 -name default' in line:
+            #    line = 'create_clock -period {} -name default\n'.format(
+            #        cfg['ClockPeriod'])
+
+            fout.write(line)
+        f.close()
+        fout.close()
+
+
 def auto_config():
     config = {'ProjectName': 'my_prj',
               'OutputDir': 'my-conifer-prj',
@@ -627,4 +737,38 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
     if(success > 0):
         print("'build' failed")
         sys.exit()
+
+    if config.get('PDR', False) == True:
+        # Create System Project
+        cmd = 'vivado -nojournal -nolog -mode batch -source build_tree_wrapper.tcl -tclargs {prj} $(pwd)/{prj} $(pwd)/{hls}'.format(prj=config['ProjectName']+'_tree_wrapper', hls=config['ProjectName']+'_prj')
+        print(cmd)
+        success = os.system(cmd)
+        if(success > 0):
+            print("'build' failed")
+            sys.exit()
+
+        # Create System Project
+        cmd = 'vivado -nojournal -nolog -mode batch -source build_system_bd.tcl -tclargs {prj} $(pwd)/{prj} $(pwd)/{hls}'.format(prj=config['ProjectName']+'_system', hls=config['ProjectName']+'_prj')
+        print(cmd)
+        success = os.system(cmd)
+        if(success > 0):
+            print("'build' failed")
+            sys.exit()
+
+        # Enabling Black-Box Synthesis
+        for file in glob.glob('./{}/**/synth/tree_wrapper_tree_*.v'.format(config['ProjectName']+'_system'), recursive=True):
+            print(file)
+            os.rename(file, file+'.bak')
+            f = open(file+'.bak', 'r')
+            fout = open(file, 'w')
+            for line in f.readlines():
+                    if line.startswith('module tree_'):
+                            line = '(* black_box="true" *)\n' + line
+                    
+                    fout.write(line)
+            f.close()
+            fout.close()
+            
+        # TODO: Synthesise System
+
     os.chdir(cwd)
