@@ -159,9 +159,8 @@ for {set i 0} {$i < $n_banks} {incr i} {
    set_property CONFIG.NUM_MI $n_trees_per_bank [set axis_broadcaster_bank_$i]
    for {set j 0} {$j < $n_trees_per_bank} {incr j} {
    create_bd_cell -type ip -vlnv xilinx.com:ip:dfx_decoupler:1.0 dfx_decoupler_${i}_${j}
-   set_property -dict [list CONFIG.ALL_PARAMS {HAS_SIGNAL_CONTROL 0 HAS_SIGNAL_STATUS 0 HAS_AXI_LITE 1} CONFIG.GUI_HAS_AXI_LITE {1} CONFIG.GUI_HAS_SIGNAL_CONTROL {0} CONFIG.GUI_HAS_SIGNAL_STATUS {0}] [get_bd_cells dfx_decoupler_${i}_${j}]
-   set_property -dict [list CONFIG.ALL_PARAMS {HAS_SIGNAL_CONTROL 0 HAS_SIGNAL_STATUS 0 HAS_AXI_LITE 1 INTF {input_stream {ID 0 VLNV xilinx.com:interface:axis_rtl:1.0 MODE slave}}} CONFIG.GUI_SELECT_INTERFACE {0} CONFIG.GUI_INTERFACE_NAME {input_stream} CONFIG.GUI_SELECT_VLNV {xilinx.com:interface:axis_rtl:1.0} CONFIG.GUI_SELECT_MODE {slave} CONFIG.GUI_SIGNAL_SELECT_0 {TVALID} CONFIG.GUI_SIGNAL_SELECT_1 {TREADY} CONFIG.GUI_SIGNAL_SELECT_2 {TDATA} CONFIG.GUI_SIGNAL_SELECT_3 {TUSER} CONFIG.GUI_SIGNAL_SELECT_4 {TLAST} CONFIG.GUI_SIGNAL_SELECT_5 {TID} CONFIG.GUI_SIGNAL_SELECT_6 {TDEST} CONFIG.GUI_SIGNAL_SELECT_7 {TSTRB} CONFIG.GUI_SIGNAL_SELECT_8 {TKEEP} CONFIG.GUI_SIGNAL_DECOUPLED_0 {true} CONFIG.GUI_SIGNAL_DECOUPLED_1 {true} CONFIG.GUI_SIGNAL_PRESENT_0 {true} CONFIG.GUI_SIGNAL_PRESENT_1 {true} CONFIG.GUI_SIGNAL_PRESENT_2 {true} CONFIG.GUI_SIGNAL_PRESENT_4 {true} CONFIG.GUI_SIGNAL_WIDTH_2 {32} CONFIG.GUI_SIGNAL_WIDTH_7 {4} CONFIG.GUI_SIGNAL_WIDTH_8 {4}] [get_bd_cells dfx_decoupler_${i}_${j}]
-   set_property -dict [list CONFIG.ALL_PARAMS {HAS_SIGNAL_CONTROL 0 HAS_SIGNAL_STATUS 0 HAS_AXI_LITE 1 INTF {input_stream {ID 0 VLNV xilinx.com:interface:axis_rtl:1.0 MODE slave} output_stream {ID 1 VLNV xilinx.com:interface:axis_rtl:1.0}}} CONFIG.GUI_SELECT_INTERFACE {1} CONFIG.GUI_INTERFACE_NAME {output_stream} CONFIG.GUI_SELECT_VLNV {xilinx.com:interface:axis_rtl:1.0} CONFIG.GUI_SELECT_MODE {master} CONFIG.GUI_SIGNAL_SELECT_0 {TVALID} CONFIG.GUI_SIGNAL_SELECT_1 {TREADY} CONFIG.GUI_SIGNAL_SELECT_2 {TDATA} CONFIG.GUI_SIGNAL_SELECT_3 {TUSER} CONFIG.GUI_SIGNAL_SELECT_4 {TLAST} CONFIG.GUI_SIGNAL_SELECT_5 {TID} CONFIG.GUI_SIGNAL_SELECT_6 {TDEST} CONFIG.GUI_SIGNAL_SELECT_7 {TSTRB} CONFIG.GUI_SIGNAL_SELECT_8 {TKEEP} CONFIG.GUI_SIGNAL_DECOUPLED_0 {true} CONFIG.GUI_SIGNAL_DECOUPLED_1 {true} CONFIG.GUI_SIGNAL_PRESENT_0 {true} CONFIG.GUI_SIGNAL_PRESENT_1 {true} CONFIG.GUI_SIGNAL_PRESENT_2 {true} CONFIG.GUI_SIGNAL_PRESENT_4 {true} CONFIG.GUI_SIGNAL_WIDTH_2 {32} CONFIG.GUI_SIGNAL_WIDTH_7 {4} CONFIG.GUI_SIGNAL_WIDTH_8 {4}] [get_bd_cells dfx_decoupler_${i}_${j}]
+   set_property -dict [list CONFIG.ALL_PARAMS {HAS_SIGNAL_CONTROL 1 HAS_SIGNAL_STATUS 1 INTF {input_stream {ID 0 VLNV xilinx.com:interface:axis_rtl:1.0 MODE slave}}} CONFIG.GUI_SELECT_INTERFACE {0} CONFIG.GUI_INTERFACE_NAME {input_stream} CONFIG.GUI_SELECT_VLNV {xilinx.com:interface:axis_rtl:1.0} CONFIG.GUI_SELECT_MODE {slave} CONFIG.GUI_SIGNAL_SELECT_0 {TVALID} CONFIG.GUI_SIGNAL_SELECT_1 {TREADY} CONFIG.GUI_SIGNAL_SELECT_2 {TDATA} CONFIG.GUI_SIGNAL_SELECT_3 {TUSER} CONFIG.GUI_SIGNAL_SELECT_4 {TLAST} CONFIG.GUI_SIGNAL_SELECT_5 {TID} CONFIG.GUI_SIGNAL_SELECT_6 {TDEST} CONFIG.GUI_SIGNAL_SELECT_7 {TSTRB} CONFIG.GUI_SIGNAL_SELECT_8 {TKEEP} CONFIG.GUI_SIGNAL_DECOUPLED_0 {true} CONFIG.GUI_SIGNAL_DECOUPLED_1 {true} CONFIG.GUI_SIGNAL_PRESENT_0 {true} CONFIG.GUI_SIGNAL_PRESENT_1 {true} CONFIG.GUI_SIGNAL_PRESENT_2 {true} CONFIG.GUI_SIGNAL_PRESENT_4 {true} CONFIG.GUI_SIGNAL_WIDTH_2 {32} CONFIG.GUI_SIGNAL_WIDTH_7 {4} CONFIG.GUI_SIGNAL_WIDTH_8 {4}] [get_bd_cells dfx_decoupler_${i}_${j}]
+   set_property -dict [list CONFIG.ALL_PARAMS {HAS_SIGNAL_CONTROL 1 HAS_SIGNAL_STATUS 1 INTF {input_stream {ID 0 VLNV xilinx.com:interface:axis_rtl:1.0 MODE slave} output_stream {ID 1 VLNV xilinx.com:interface:axis_rtl:1.0}}} CONFIG.GUI_SELECT_INTERFACE {1} CONFIG.GUI_INTERFACE_NAME {output_stream} CONFIG.GUI_SELECT_VLNV {xilinx.com:interface:axis_rtl:1.0} CONFIG.GUI_SELECT_MODE {master} CONFIG.GUI_SIGNAL_SELECT_0 {TVALID} CONFIG.GUI_SIGNAL_SELECT_1 {TREADY} CONFIG.GUI_SIGNAL_SELECT_2 {TDATA} CONFIG.GUI_SIGNAL_SELECT_3 {TUSER} CONFIG.GUI_SIGNAL_SELECT_4 {TLAST} CONFIG.GUI_SIGNAL_SELECT_5 {TID} CONFIG.GUI_SIGNAL_SELECT_6 {TDEST} CONFIG.GUI_SIGNAL_SELECT_7 {TSTRB} CONFIG.GUI_SIGNAL_SELECT_8 {TKEEP} CONFIG.GUI_SIGNAL_DECOUPLED_0 {true} CONFIG.GUI_SIGNAL_DECOUPLED_1 {true} CONFIG.GUI_SIGNAL_PRESENT_0 {true} CONFIG.GUI_SIGNAL_PRESENT_1 {true} CONFIG.GUI_SIGNAL_PRESENT_2 {true} CONFIG.GUI_SIGNAL_PRESENT_4 {true} CONFIG.GUI_SIGNAL_WIDTH_2 {32} CONFIG.GUI_SIGNAL_WIDTH_7 {4} CONFIG.GUI_SIGNAL_WIDTH_8 {4}] [get_bd_cells dfx_decoupler_${i}_${j}]
    set tree_${i}_${j} [ create_bd_cell -type ip -vlnv xilinx.com:##project_name##:tree_wrapper:1.0 tree_${i}_${j} ]
    set vote_buffer_${i}_${j} [ create_bd_cell -type ip -vlnv xilinx.com:##project_name##:vote_buffer:1.0 vote_buffer_${i}_${j} ]
    }
@@ -173,6 +172,17 @@ for {set i 0} {$i < $n_banks} {incr i} {
       CONFIG.NUM_MI {1} \
       CONFIG.NUM_SI $n_trees_per_bank \
    ] [set axis_interconnect_${i}]
+
+   set axi_gpio_${i}_decouplers [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_gpio:2.0 axi_gpio_${i}_decouplers]
+   set_property -dict [list CONFIG.C_GPIO_WIDTH {1} CONFIG.C_GPIO2_WIDTH $n_trees_per_bank CONFIG.C_IS_DUAL {1} CONFIG.C_ALL_INPUTS_2 {1} CONFIG.C_ALL_OUTPUTS {1}] [get_bd_cells axi_gpio_${i}_decouplers]
+
+   set concat_decoupler_status_${i} [create_bd_cell -type ip -vlnv xilinx.com:ip:xlconcat:2.1 concat_decoupler_status_${i}]
+   set_property -dict [list CONFIG.NUM_PORTS $n_trees_per_bank ] [get_bd_cells concat_decoupler_status_${i}]
+
+   set axi_gpio_${i}_reset [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_gpio:2.0 axi_gpio_${i}_reset]
+   set_property -dict [list CONFIG.C_GPIO_WIDTH {1} CONFIG.C_ALL_OUTPUTS {1}] [get_bd_cells axi_gpio_${i}_reset]
+   set_property -dict [list CONFIG.C_DOUT_DEFAULT {0xFFFFFFFF}] [get_bd_cells axi_gpio_${i}_reset]
+
 }
 
 # Create instance: axis_interconnect_x, and set properties
@@ -228,7 +238,16 @@ for {set i 0} {$i < $n_banks} {incr i} {
             connect_bd_intf_net -intf_net s_output_stream_${i}_${j} [get_bd_intf_pins dfx_decoupler_${i}_${j}/s_output_stream] [get_bd_intf_pins vote_buffer_${i}_${j}/input_stream]
             connect_bd_intf_net -intf_net axis_interconnect_${i}_[format "S%02d_AXIS" $j] [get_bd_intf_pins vote_buffer_${i}_${j}/output_stream] [get_bd_intf_pins axis_interconnect_${i}/[format "S%02d_AXIS" $j]]
             connect_bd_net -net tree_${i}_${j}_irq [get_bd_pins vote_buffer_${i}_${j}/irq] [get_bd_pins xlconcat/In[expr $i*$n_trees_per_bank+$j]]
+            connect_bd_net [get_bd_pins dfx_decoupler_${i}_${j}/decouple_status] [get_bd_pins concat_decoupler_status_${i}/In${j}]
+            if {$j == 0} {
+               connect_bd_net -net axi_gpio_${i}_decouplers_gpio_io_o [get_bd_pins dfx_decoupler_${i}_${j}/decouple] [get_bd_pins axi_gpio_${i}_decouplers/gpio_io_o]
+               connect_bd_net -net axi_gpio_${i}_resets_gpio_io_o [get_bd_pins tree_${i}_${j}/resetn] [get_bd_pins axi_gpio_${i}_reset/gpio_io_o]
+            } else {
+               connect_bd_net -net axi_gpio_${i}_decouplers_gpio_io_o [get_bd_pins dfx_decoupler_${i}_${j}/decouple]
+               connect_bd_net -net axi_gpio_${i}_resets_gpio_io_o [get_bd_pins tree_${i}_${j}/resetn]
+            }
       }
+      connect_bd_net [get_bd_pins concat_decoupler_status_${i}/dout] [get_bd_pins axi_gpio_${i}_decouplers/gpio2_io_i]
       connect_bd_intf_net -intf_net axis_interconnect_x_[format "S%02d_AXIS" $i] [get_bd_intf_pins axis_interconnect_${i}/M00_AXIS] [get_bd_intf_pins axis_interconnect_x/[format "S%02d_AXIS" $i]]
 }
 
@@ -244,15 +263,14 @@ connect_bd_net -net xlconcat_dout1 [get_bd_pins interrupt_controller/intr] [get_
 connect_bd_net -net interrupt_controller_irq [get_bd_pins interrupt_controller/irq] [get_bd_pins processing_system7/IRQ_F2P]
 #AXI4-Lite
 startgroup
+for {set i 0} {$i < $n_classes} {incr i} {
+   apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7/M_AXI_GP0} Slave {/axi_dma_cl${i}/S_AXI_LITE} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins axi_dma_cl${i}/S_AXI_LITE]
+}
 apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7/M_AXI_GP0} Slave {/axi_dma_ctrl/S_AXI_LITE} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins axi_dma_ctrl/S_AXI_LITE]
 apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7/M_AXI_GP0} Slave {/axi_dma_samples/S_AXI_LITE} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins axi_dma_samples/S_AXI_LITE]
 for {set i 0} {$i < $n_banks} {incr i} {
-   for {set j 0} {$j < $n_trees_per_bank} {incr j} {
-      apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7/M_AXI_GP0} Slave {/dfx_decoupler_${i}_${j}/s_axi_reg} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins dfx_decoupler_${i}_${j}/s_axi_reg]
-   }
-}
-for {set i 0} {$i < $n_classes} {incr i} {
-   apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7/M_AXI_GP0} Slave {/axi_dma_cl${i}/S_AXI_LITE} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins axi_dma_cl${i}/S_AXI_LITE]
+   apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7/M_AXI_GP0} Slave {/axi_gpio_${i}_decouplers/S_AXI} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins axi_gpio_${i}_decouplers/S_AXI]
+   apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7/M_AXI_GP0} Slave {/axi_gpio_${i}_reset/S_AXI} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins axi_gpio_${i}_reset/S_AXI]
 }
 apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7/M_AXI_GP0} Slave {/interrupt_controller/s_axi} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins interrupt_controller/s_axi]
 endgroup
@@ -291,13 +309,8 @@ for {set i 0} {$i < $n_banks} {incr i} {
    }
 }
 endgroup
-for {set i 0} {$i < $n_banks} {incr i} {
-   for {set j 0} {$j < $n_trees_per_bank} {incr j} {
-            connect_bd_net [get_bd_pins dfx_decoupler_${i}_${j}/s_axi_reg_aresetn] [get_bd_pins rst_ps7_100M/peripheral_aresetn]
-   }
-}
 
-# Restore current instance
+#Restore current instance
 current_bd_instance $oldCurInst
 
 validate_bd_design

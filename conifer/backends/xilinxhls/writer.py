@@ -669,7 +669,49 @@ def write(ensemble_dict, cfg):
             fout.write(line)
         f.close()
         fout.close()
+    #######################
+    # build_tree_wrapper.tcl
+    #######################
 
+    if cfg.get('PDR', False) == True:
+        f = open(os.path.join(filedir, 'system-template/tree_wrapper.tcl'), 'r')
+        fout = open('{}/build_tree_wrapper.tcl'.format(cfg['OutputDir']), 'w')
+        for line in f.readlines():
+
+            precision = int(cfg['Precision'].split('<')[1].split(',')[0])
+            
+            if '## hls-fpga-machine-learning insert project-name' in line:
+                line = line.replace('## hls-fpga-machine-learning insert project-name', '{}_system'.format(cfg['ProjectName']))
+            elif '## hls-fpga-machine-learning insert project-part' in line:
+                line = line.replace('## hls-fpga-machine-learning insert project-part', cfg['XilinxPart'])
+            elif '## hls-fpga-machine-learning insert project-board' in line:
+                line = line.replace('## hls-fpga-machine-learning insert project-board', cfg['XilinxBoard'])
+            if '##project_name##' in line:
+                line = line.replace('##project_name##', cfg['ProjectName'])
+            # TODO: Manage clock
+            #elif 'create_clock -period 5 -name default' in line:
+            #    line = 'create_clock -period {} -name default\n'.format(
+            #        cfg['ClockPeriod'])
+
+            fout.write(line)
+        f.close()
+        fout.close()
+
+    #######################
+    # synth_static_shell.tcl
+    #######################
+
+    if cfg.get('PDR', False) == True:
+        f = open(os.path.join(filedir, 'system-template/static_shell.tcl'), 'r')
+        fout = open('{}/synth_static_shell.tcl'.format(cfg['OutputDir']), 'w')
+        for line in f.readlines():
+
+            if '## hls-fpga-machine-learning insert project-name' in line:
+                line = line.replace('## hls-fpga-machine-learning insert project-name', '{}_system'.format(cfg['ProjectName']))
+
+            fout.write(line)
+        f.close()
+        fout.close()
 
 def auto_config():
     config = {'ProjectName': 'my_prj',
@@ -769,6 +811,13 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
             f.close()
             fout.close()
             
+        cmd = 'vivado -nojournal -nolog -mode batch -source synth_static_shell.tcl -tclargs {prj} $(pwd)/{prj}'.format(prj=config['ProjectName']+'_system', hls=config['ProjectName']+'_prj')
+        print(cmd)
+        success = os.system(cmd)
+        if(success > 0):
+            print("'static shell's synth failed")
+            sys.exit()
+
         # TODO: Synthesise System
 
     os.chdir(cwd)
