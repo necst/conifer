@@ -4,6 +4,7 @@ from shutil import copyfile
 import numpy as np
 import math
 import glob
+import zipfile
 
 _TOOLS = {
     'vivadohls': 'vivado_hls',
@@ -58,6 +59,21 @@ def write(ensemble_dict, cfg):
     copyfile('{}/firmware/BDT.h'.format(filedir),
              '{}/firmware/BDT.h'.format(cfg['OutputDir']))
     if cfg.get('PDR', False) == True:
+        os.makedirs('{}/{}_reconfigurable_system'.format(cfg['OutputDir'], cfg['ProjectName']))
+        os.makedirs('{}/{}_reconfigurable_system/srcs'.format(cfg['OutputDir'], cfg['ProjectName']))
+        os.makedirs('{}/{}_reconfigurable_system/srcs/dcp'.format(cfg['OutputDir'], cfg['ProjectName']))
+        os.makedirs('{}/{}_reconfigurable_system/srcs/hdl'.format(cfg['OutputDir'], cfg['ProjectName']))
+        os.makedirs('{}/{}_reconfigurable_system/srcs/ip'.format(cfg['OutputDir'], cfg['ProjectName']))
+        os.makedirs('{}/{}_reconfigurable_system/srcs/prj'.format(cfg['OutputDir'], cfg['ProjectName']))
+        os.makedirs('{}/{}_reconfigurable_system/constrs'.format(cfg['OutputDir'], cfg['ProjectName']))
+        os.makedirs('{}/{}_reconfigurable_system/scripts'.format(cfg['OutputDir'], cfg['ProjectName']))
+        os.makedirs('{}/{}_reconfigurable_system/scripts/tcl'.format(cfg['OutputDir'], cfg['ProjectName']))
+        for entry in os.scandir('{}/system-template/reconfigurable_system/scripts/tcl'.format(filedir)):
+            if entry.is_file():
+                copyfile(
+                    entry.path, 
+                    '{}/{}_reconfigurable_system/scripts/tcl/{}'.format(cfg['OutputDir'], cfg['ProjectName'], entry.name)
+                )
         copyfile('{}/firmware/utils.h'.format(filedir),
                 '{}/firmware/utils.h'.format(cfg['OutputDir']))
 
@@ -713,6 +729,153 @@ def write(ensemble_dict, cfg):
         f.close()
         fout.close()
 
+    #######################
+    # design.tcl
+    #######################
+
+    if cfg.get('PDR', False) == True:
+        f = open(os.path.join(filedir, 'system-template/reconfigurable_system/scripts/design.tcl'), 'r')
+        fout = open('{}/{}_reconfigurable_system/scripts/design.tcl'.format(cfg['OutputDir'], cfg['ProjectName']) , 'w')
+
+        trees_per_bank = int(cfg['TreesPerBank'])
+        rp_variants = math.ceil(tree_count / (trees_per_bank * bank_count))
+
+        for line in f.readlines():
+            
+            if '## hls-fpga-machine-learning insert project-part' in line:
+                line = line.replace('## hls-fpga-machine-learning insert project-part', cfg['XilinxPart'])
+            elif '## hls-fpga-machine-learning insert rp-module-definition' in line:
+                line = ''
+
+                curr_bank = 0
+                curr_tree_in_bank = 0
+                curr_variant = 0
+
+                for itree, trees in enumerate(ensemble_dict['trees']):
+                    for iclass, tree in enumerate(trees):
+                        if (curr_variant == 0):
+                            line += 'set module_{bank}_{tree} "top_system_tree_{bank}_{tree}_0_tree_wrapper_tree_bb_0"\n'.format(
+                                bank = curr_bank,
+                                tree = curr_tree_in_bank
+                            )
+
+                        line += 'set module_{bank}_{tree}_variant{variant} "tree_cl{the_class}_{tree_in_class}"\n'.format(
+                            bank = curr_bank,
+                            tree = curr_tree_in_bank,
+                            variant = curr_variant,
+                            the_class = iclass,
+                            tree_in_class = itree
+                        )
+                        line += 'set variant $module_{bank}_{tree}_variant{variant}\n'.format(
+                            bank = curr_bank,
+                            tree = curr_tree_in_bank,
+                            variant = curr_variant
+                        )
+                        line += 'add_module $variant\n'
+                        line += 'set_attribute module $variant moduleName   $module_{bank}_{tree}\n'.format(
+                            bank = curr_bank,
+                            tree = curr_tree_in_bank
+                        )
+                        line += 'set_attribute module $variant prj          $prjDir/$variant.prj\n'
+                        line += 'set_attribute module $variant xdc          $ipDir/$variant/constraints/TOP_FUNCTION_ooc.xdc\n'
+                        line += 'set_attribute module $variant synth        ${run.rmSynth}\n'
+                        line += '\n'
+
+                        curr_variant += 1
+
+                        if (curr_variant >= rp_variants):
+                            line += 'set module_{bank}_{tree}_inst "top_system_i/tree_{bank}_{tree}/inst/tree_bb"\n'.format(
+                                bank = curr_bank,
+                                tree = curr_tree_in_bank
+                            )
+                            line += '\n'
+                            line += '\n'
+
+                            curr_variant = 0
+                            curr_tree_in_bank += 1
+                            if (curr_tree_in_bank >= trees_per_bank):
+                                curr_tree_in_bank = 0
+                                curr_bank += 1
+
+            elif '## hls-fpga-machine-learning insert rp-configuration' in line:
+                line = ''
+
+                for i_config in range(rp_variants):
+                    line += 'set config "Config_{}" \n'.format(i_config);
+                    line += '\n';
+                    line += 'add_implementation $config\n';
+                    line += 'set_attribute impl $config top             $top\n';
+                    line += 'set_attribute impl $config pr.impl         1\n';
+                    line += 'set_attribute impl $config implXDC         [list $xdcDir/top_system_pblock.xdc \\\n';
+                    line += '                                        ]\n';
+                    line += 'set_attribute impl $config impl            ${run.prImpl} \n';
+                    line += 'set_attribute impl $config partitions      [list [list $static           $top           {}] \\\n'.format(
+                        'implement' if i_config == 0 else 'import'
+                    );
+                    for i_bank in range(bank_count):
+                        for i_tree in range(trees_per_bank):
+                            line += '                                                [list $module_{bank}_{tree}_variant{variant} $module_{bank}_{tree}_inst implement] \\\n'.format(
+                                bank = i_bank,
+                                tree = i_tree,
+                                variant = i_config
+                            );
+                    line += '                                        ]\n';
+                    line += 'set_attribute impl $config verify          ${run.prVerify} \n';
+                    line += 'set_attribute impl $config bitstream       ${run.writeBitstream} \n';
+                    line += 'set_attribute impl $config cfgmem.pcap     1\n';
+                    line += '\n';
+                line += '\n';
+            elif '## hls-fpga-machine-learning insert rp-flat-configuration' in line:
+                line = ''
+
+                line += 'add_implementation Flat\n'
+                line += 'set_attribute impl Flat top          $top\n'
+                line += 'set_attribute impl Flat implXDC      [list $xdcDir/top_system_pblock.xdc \\\n'
+                line += '                                    ]\n'
+                line += 'set_attribute impl Flat partitions   [list [list $static           $top           implement] \\\n'
+                for i_bank in range(bank_count):
+                    for i_tree in range(trees_per_bank):
+                        line += '                                                [list $module_{bank}_{tree}_variant{variant} $module_{bank}_{tree}_inst implement] \\\n'.format(
+                            bank = i_bank,
+                            tree = i_tree,
+                            variant = 0
+                        );
+                line += '                                    ]\n'
+                line += 'set_attribute impl Flat impl         ${run.flatImpl}\n'
+
+            fout.write(line)
+        f.close()
+        fout.close()
+
+    #######################
+    # top_system_pblock.tcl
+    #######################
+
+    if cfg.get('PDR', False) == True:
+        f = open(os.path.join(filedir, 'system-template/reconfigurable_system/constrs/{}.xdc'.format(cfg['XilinxPart'])), 'r')
+        fout = open('{}/{}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(cfg['OutputDir'], cfg['ProjectName']) , 'w')
+
+        trees_per_bank = int(cfg['TreesPerBank'])
+
+        outputting_bank = False
+        outputting_tree = False
+
+        for line in f.readlines():
+            if '## hls-fpga-machine-learning begin bank ' in line:
+                i_bank = int(line.replace('## hls-fpga-machine-learning begin bank ', ''))
+                outputting_bank = i_bank < bank_count
+                line = ''
+            elif '## hls-fpga-machine-learning begin tree ' in line and outputting_bank:
+                i_tree = int(line.replace('## hls-fpga-machine-learning begin tree ', ''))
+                outputting_tree = i_tree < trees_per_bank
+                line = ''
+            
+            if (outputting_bank and outputting_tree):
+                fout.write(line)
+        
+        f.close()
+        fout.close()
+
 def auto_config():
     config = {'ProjectName': 'my_prj',
               'OutputDir': 'my-conifer-prj',
@@ -781,7 +944,7 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
         sys.exit()
 
     if config.get('PDR', False) == True:
-        # Create System Project
+        # Create Tree Wrapper Project
         cmd = 'vivado -nojournal -nolog -mode batch -source build_tree_wrapper.tcl -tclargs {prj} $(pwd)/{prj} $(pwd)/{hls}'.format(prj=config['ProjectName']+'_tree_wrapper', hls=config['ProjectName']+'_prj')
         print(cmd)
         success = os.system(cmd)
@@ -800,6 +963,17 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
         # Enabling Black-Box Synthesis
         for file in glob.glob('./{}/**/synth/tree_wrapper_tree_*.v'.format(config['ProjectName']+'_system'), recursive=True):
             print(file)
+
+            local_name = os.path.basename(os.path.dirname(os.path.dirname(file)))
+            global_name = os.path.basename(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(file))))) + '_' + local_name
+
+            with open(file, 'r') as original_file:
+                with open('./{}/srcs/hdl/{}.v'.format(config['ProjectName']+'_reconfigurable_system', global_name), 'w') as dest_file:
+                    for line in original_file.readlines():
+                        if not ('(* black_box="true" *)' in line):
+                            line = line.replace(local_name, global_name)
+                            dest_file.write(line)
+
             os.rename(file, file+'.bak')
             f = open(file+'.bak', 'r')
             fout = open(file, 'w')
@@ -811,13 +985,45 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
             f.close()
             fout.close()
             
-        cmd = 'vivado -nojournal -nolog -mode batch -source synth_static_shell.tcl -tclargs {prj} $(pwd)/{prj}'.format(prj=config['ProjectName']+'_system', hls=config['ProjectName']+'_prj')
+        cmd = 'vivado -nojournal -nolog -mode batch -source synth_static_shell.tcl -tclargs $(pwd)/{prj}'.format(prj=config['ProjectName']+'_system')
         print(cmd)
         success = os.system(cmd)
         if(success > 0):
             print("'static shell's synth failed")
             sys.exit()
 
-        # TODO: Synthesise System
+        # Prepare source files for reconfiguration
+        print("START PREPARING FOR RECONFIG...")
 
+        # Gathering Static Shell dcp
+        copyfile('./{}/static_shell.dcp'.format(config['ProjectName']+'_system'), 
+        './{}/srcs/dcp/static_shell.dcp'.format(config['ProjectName']+'_reconfigurable_system'))
+        
+        # Extracting RM IPs
+        ip_srcs = './{}/srcs/ip'.format(config['ProjectName']+'_reconfigurable_system')
+
+        for ip_archive in glob.iglob('./{}/tree_*/impl/export.zip'.format(config['ProjectName']+'_prj')):
+            ip_name = os.path.basename(os.path.dirname(os.path.dirname(ip_archive)))
+            with zipfile.ZipFile(ip_archive, 'r') as zip_ref:
+                zip_ref.extractall(path=ip_srcs + '/' + ip_name)
+
+        # Generating IP PRJs
+        prevOutDir = os.getcwd()
+        os.chdir('./{}/'.format(config['ProjectName']+'_reconfigurable_system'))
+        wrapper_sources = glob.glob('./srcs/hdl/*.v')
+        for ip_folder in glob.iglob('./srcs/ip/tree_*')
+            ip_name = os.path.basename(ip_folder)
+            ip_sources = glob.glob('{}/hdl/verilog/*.v'.format(ip_folder))
+            with open('./srcs/prj/{}.prj'.format(ip_name), 'w') as dest_file:
+                    for line in map(lambda x: 'verilog xil_defaultLib ' + x, ip_sources + wrapper_sources):
+                        dest_file.write(line + '\n')
+
+        cmd = 'vivado -nojournal -nolog -mode batch -source scripts/design.tcl'
+        print(cmd)
+        success = os.system(cmd)
+        if(success > 0):
+            print("'reconfig synth failed")
+            sys.exit()
+
+        os.chdir(prevOutDir)
     os.chdir(cwd)

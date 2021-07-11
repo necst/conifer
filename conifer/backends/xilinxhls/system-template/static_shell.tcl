@@ -1,8 +1,7 @@
-set prj_root  [lindex $argv 0]
-set prj_dir [lindex $argv 1]
+set prj_dir [lindex $argv 0]
 set prj_name ## hls-fpga-machine-learning insert project-name
 
-open_project ${prj_dir}/${prj_root}/${prj_root}.xpr
+open_project ${prj_dir}/${prj_name}.xpr
 
 update_compile_order -fileset sources_1
 #TODO: Parametrize parallelism
