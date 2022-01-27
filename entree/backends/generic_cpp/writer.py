@@ -47,7 +47,7 @@ def write(ensemble_dict, cfg):
     fout.write('\n')
     fout.write('namespace {}_description {{\n'.format(dt_name))
 
-    fout.write('static constexpr const std::string_view node_label = "{}"\n'.format(dt_name));
+    fout.write('static constexpr const std::string_view node_label = "{}";\n'.format(dt_name));
 
     for i, feature in enumerate(cfg.get('FeatureList', [])):
         fout.write('#define F{} "{}"\n'.format(i, feature))
@@ -71,7 +71,7 @@ def write(ensemble_dict, cfg):
                    'children_left', 'children_right', 'parent']
 
     fout.write(
-        "static const entree::BDT<n_trees, max_depth, n_classes, input_arr_t, score_t, threshold_t> bdt = \n")
+        "static const entree::BDT<node_label, n_trees, max_depth, n_classes, input_arr_t, score_t, threshold_t> bdt = \n")
     fout.write("{ // The struct\n")
     newline = "\t" + str(ensemble_dict['norm']) + ", // The normalisation\n"
     fout.write(newline)
