@@ -16,14 +16,7 @@
 # Part of this source file comes from the Conifer open-source project 
 # (https://github.com/thesps/conifer)
 
-from msilib.schema import Error
 import os
-import sys
-from shutil import copyfile
-import numpy as np
-import math
-import glob
-import zipfile
 import re
 
 def clean(varStr):
