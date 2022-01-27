@@ -33,6 +33,8 @@ def write(ensemble_dict, cfg):
         if len(trees) > class_count:
             class_count = len(trees)
 
+    os.makedirs('{}'.format(cfg['OutputDir']))
+
     dt_name = clean(cfg['ProjectName'])
     
     ###################
