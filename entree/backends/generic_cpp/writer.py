@@ -59,8 +59,8 @@ def write(ensemble_dict, cfg):
     fout.write('static const int n_features = {};\n'.format(
         ensemble_dict['n_features']))
     fout.write('static const char* feature_labels[] = {\n')
-    fout.write(',\n'.join(map(lambda i: 'F'+i, range(0, len(cfg.get('FeatureList')))))+'\n')
-    fout.write('}\n')
+    fout.write(',\n'.join(map(lambda i: 'F'+str(i), range(0, len(cfg.get('FeatureList')))))+'\n')
+    fout.write('};\n')
     fout.write('static const int n_classes = {};\n'.format(
         ensemble_dict['n_classes']))
     fout.write('typedef {} input_t;\n'.format(cfg['Precision']))
