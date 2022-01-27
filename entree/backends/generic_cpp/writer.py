@@ -41,7 +41,7 @@ def write(ensemble_dict, cfg):
     # parameters.h
     ###################
 
-    fout = open('{}/{}.h'.format(cfg['OutputDir'], dt_name), 'w')
+    fout = open('{}/{}.h'.format(cfg['OutputDir'], 'parameters'), 'w')
     fout.write('#ifndef {}_HPP__\n'.format(dt_name.upper()))
     fout.write('#define {}_HPP__\n'.format(dt_name.upper()))
     fout.write('\n')
