@@ -5,6 +5,7 @@ import sys
 import importlib.util
 
 from . import xilinxhls
+from . import generic_cpp
 
 SPEC_XILINXHLS = importlib.util.find_spec('.xilinxhls', __name__)
 
