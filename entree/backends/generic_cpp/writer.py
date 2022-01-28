@@ -114,18 +114,20 @@ def write(ensemble_dict, cfg):
             newline += ','
         newline += '\n'
         fout.write(newline)
-    fout.write('\t}\n};')
-    fout.write('}\n')
+    fout.write('\t}\n};\n')
 
     if any('rules' in tree.keys() for trees in ensemble_dict['trees'] for tree in trees):
-        fout.write('#define {}_ENTREE_RULES "\\\n'.format(dt_name.upper()))
+        fout.write('#ifdef REFLECTION\n')
+        fout.write('static const std::string_view rules = "\\n\\\n'.format(dt_name.upper()))
         for itree, trees in enumerate(ensemble_dict['trees']):
             for iclass, tree in enumerate(trees):
                 if 'rules' in tree.keys():
-                    fout.write('TREE #{}-{}:\\\n'.format(itree, iclass))
-                    fout.write(tree['rules'].replace('\n', '\\\n'))
-        fout.write('"\n')
+                    fout.write('TREE #{}-{}:\\n\\\n'.format(itree, iclass))
+                    fout.write(tree['rules'].replace('\n', '\\n\\\n'))
+        fout.write('";\n')
+        fout.write('#endif\n')
 
+    fout.write('}\n')
     fout.write('\n#endif')
     fout.close()
 
