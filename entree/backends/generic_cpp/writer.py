@@ -45,33 +45,11 @@ def write(ensemble_dict, cfg):
     fout.write('#ifndef {}_HPP__\n'.format(dt_name.upper()))
     fout.write('#define {}_HPP__\n'.format(dt_name.upper()))
     fout.write('\n')
+    fout.write('#include <string_view>\n')
     fout.write('namespace {}_description {{\n'.format(dt_name))
 
     fout.write('static constexpr const std::string_view node_label = "{}";\n'.format(dt_name));
 
-    fout.write('#ifdef ENTREE_REFLECTION_ENABLE\n')
-    fout.write('#ifndef ENTREE_REFLECTION_LEVEL\n')
-    fout.write('#define ENTREE_REFLECTION_LEVEL 1\n')
-    fout.write('#endif\n')
-    fout.write('#if (ENTREE_REFLECTION_LEVEL > 0)\n')
-    fout.write('static const char* feature_labels[] = {\n')
-    fout.write(',\n'.join(
-        map(
-            lambda i: '\t"'+str(i)+'"',
-            cfg.get('FeatureList', [])
-        )
-    ) + '\n')
-    fout.write('};\n')
-    fout.write('static const char* class_labels[] = {\n')
-    fout.write(',\n'.join(
-        map(
-            lambda i: '\t"'+str(i)+'"',
-            cfg.get('ClassList', [])
-        )
-    ) + '\n')
-    fout.write('};\n')
-    fout.write('#endif\n')
-    fout.write('#endif\n')
     fout.write('static const int n_trees = {};\n'.format(
         ensemble_dict['n_trees']))
     fout.write('static const int max_depth = {};\n'.format(
@@ -86,6 +64,21 @@ def write(ensemble_dict, cfg):
             )
         ) + '\n')
     fout.write('};\n')
+    fout.write('#ifdef ENTREE_REFLECTION_ENABLE\n')
+    fout.write('#ifndef ENTREE_REFLECTION_LEVEL\n')
+    fout.write('#define ENTREE_REFLECTION_LEVEL 1\n')
+    fout.write('#endif\n')
+    fout.write('#if (ENTREE_REFLECTION_LEVEL > 0)\n')
+    fout.write('static const std::string_view feature_labels[] = {\n')
+    fout.write(',\n'.join(
+        map(
+            lambda i: '\t"'+str(i)+'"',
+            cfg.get('FeatureList', [])
+        )
+    ) + '\n')
+    fout.write('};\n')
+    fout.write('#endif\n')
+    fout.write('#endif\n')
     fout.write('static const int n_classes = {};\n'.format(
         ensemble_dict['n_classes']))
     fout.write('enum Class {\n')
@@ -96,6 +89,21 @@ def write(ensemble_dict, cfg):
             )
         ) + '\n')
     fout.write('};\n')
+    fout.write('#ifdef ENTREE_REFLECTION_ENABLE\n')
+    fout.write('#ifndef ENTREE_REFLECTION_LEVEL\n')
+    fout.write('#define ENTREE_REFLECTION_LEVEL 1\n')
+    fout.write('#endif\n')
+    fout.write('#if (ENTREE_REFLECTION_LEVEL > 0)\n')
+    fout.write('static const std::string_view class_labels[] = {\n')
+    fout.write(',\n'.join(
+        map(
+            lambda i: '\t"'+str(i)+'"',
+            cfg.get('ClassList', [])
+        )
+    ) + '\n')
+    fout.write('};\n')
+    fout.write('#endif\n')
+    fout.write('#endif\n')
     fout.write('typedef {} input_t;\n'.format(cfg['Precision']))
     fout.write('typedef input_t input_arr_t[n_features];\n')
     fout.write('typedef {} score_t;\n'.format(cfg['Precision']))
@@ -110,6 +118,16 @@ def write(ensemble_dict, cfg):
         fout.write('#endif\n')
         fout.write('#if (ENTREE_REFLECTION_LEVEL > 1)\n')
         fout.write('static const std::string_view rules = "\\n\\\n'.format(dt_name.upper()))
+        fout.write('FEATURES: [{}]\\n\\\n'.format(','.join(map(
+                lambda i: '\''+clean(str(i))+'\'', 
+                cfg.get('FeatureList', [])
+            )
+        )))
+        fout.write('CLASSES: [{}]\\n\\\n'.format(','.join(map(
+                lambda i: '\''+clean(str(i))+'\'', 
+                cfg.get('ClassList', [])
+            )
+        )))
         for itree, trees in enumerate(ensemble_dict['trees']):
             for iclass, tree in enumerate(trees):
                 if 'rules' in tree.keys():
