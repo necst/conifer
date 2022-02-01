@@ -49,20 +49,53 @@ def write(ensemble_dict, cfg):
 
     fout.write('static constexpr const std::string_view node_label = "{}";\n'.format(dt_name));
 
-    for i, feature in enumerate(cfg.get('FeatureList', [])):
-        fout.write('#define F{} "{}"\n'.format(i, feature))
-    fout.write('\n')
+    fout.write('#ifdef ENTREE_REFLECTION_ENABLE\n')
+    fout.write('#ifndef ENTREE_REFLECTION_LEVEL\n')
+    fout.write('#define ENTREE_REFLECTION_LEVEL 1\n')
+    fout.write('#endif\n')
+    fout.write('#if (ENTREE_REFLECTION_LEVEL > 0)\n')
+    fout.write('static const char* feature_labels[] = {\n')
+    fout.write(',\n'.join(
+        map(
+            lambda i: '\t"'+str(i)+'"',
+            cfg.get('FeatureList', [])
+        )
+    ) + '\n')
+    fout.write('};\n')
+    fout.write('static const char* class_labels[] = {\n')
+    fout.write(',\n'.join(
+        map(
+            lambda i: '\t"'+str(i)+'"',
+            cfg.get('ClassList', [])
+        )
+    ) + '\n')
+    fout.write('};\n')
+    fout.write('#endif\n')
+    fout.write('#endif\n')
     fout.write('static const int n_trees = {};\n'.format(
         ensemble_dict['n_trees']))
     fout.write('static const int max_depth = {};\n'.format(
         ensemble_dict['max_depth']))
     fout.write('static const int n_features = {};\n'.format(
         ensemble_dict['n_features']))
-    fout.write('static const char* feature_labels[] = {\n')
-    fout.write(',\n'.join(map(lambda i: 'F'+str(i), range(0, len(cfg.get('FeatureList', [])))))+'\n')
+    fout.write('enum Feature {\n')
+    fout.write(',\n'.join(
+            map(
+                lambda i: '\t'+clean(str(i)), 
+                cfg.get('FeatureList', [])
+            )
+        ) + '\n')
     fout.write('};\n')
     fout.write('static const int n_classes = {};\n'.format(
         ensemble_dict['n_classes']))
+    fout.write('enum Class {\n')
+    fout.write(',\n'.join(
+            map(
+                lambda i: '\t'+clean(str(i))+'', 
+                cfg.get('ClassList', [])
+            )
+        ) + '\n')
+    fout.write('};\n')
     fout.write('typedef {} input_t;\n'.format(cfg['Precision']))
     fout.write('typedef input_t input_arr_t[n_features];\n')
     fout.write('typedef {} score_t;\n'.format(cfg['Precision']))
@@ -70,6 +103,23 @@ def write(ensemble_dict, cfg):
     # TODO score_arr_t
     fout.write('typedef input_t threshold_t;\n\n')
     
+    if any('rules' in tree.keys() for trees in ensemble_dict['trees'] for tree in trees):
+        fout.write('#ifdef ENTREE_REFLECTION_ENABLE\n')
+        fout.write('#ifndef ENTREE_REFLECTION_LEVEL\n')
+        fout.write('#define ENTREE_REFLECTION_LEVEL 1\n')
+        fout.write('#endif\n')
+        fout.write('#if (ENTREE_REFLECTION_LEVEL > 1)\n')
+        fout.write('static const std::string_view rules = "\\n\\\n'.format(dt_name.upper()))
+        for itree, trees in enumerate(ensemble_dict['trees']):
+            for iclass, tree in enumerate(trees):
+                if 'rules' in tree.keys():
+                    fout.write('TREE #{}-{}:\\n\\\n'.format(itree, iclass))
+                    fout.write(tree['rules'].replace('\n', '\\n\\\n'))
+        fout.write('";\n')
+        fout.write('#endif\n')
+        fout.write('#endif\n')
+
+
     tree_fields = ['feature', 'threshold', 'value',
                    'children_left', 'children_right', 'parent']
 
@@ -115,17 +165,6 @@ def write(ensemble_dict, cfg):
         newline += '\n'
         fout.write(newline)
     fout.write('\t}\n};\n')
-
-    if any('rules' in tree.keys() for trees in ensemble_dict['trees'] for tree in trees):
-        fout.write('#ifdef REFLECTION\n')
-        fout.write('static const std::string_view rules = "\\n\\\n'.format(dt_name.upper()))
-        for itree, trees in enumerate(ensemble_dict['trees']):
-            for iclass, tree in enumerate(trees):
-                if 'rules' in tree.keys():
-                    fout.write('TREE #{}-{}:\\n\\\n'.format(itree, iclass))
-                    fout.write(tree['rules'].replace('\n', '\\n\\\n'))
-        fout.write('";\n')
-        fout.write('#endif\n')
 
     fout.write('}\n')
     fout.write('\n#endif')

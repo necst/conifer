@@ -17,6 +17,7 @@ cfg = entree.backends.generic_cpp.auto_config()
 # Set the output directory to something unique
 cfg['OutputDir'] = 'prj_{}'.format(int(datetime.datetime.now().timestamp()))
 cfg['FeatureList'] = iris.feature_names
+cfg['ClassList'] = iris.target_names
 
 model = entree.model(clf, entree.converters.sklearn,
                       entree.backends.generic_cpp, cfg)
