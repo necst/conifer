@@ -18,6 +18,7 @@
 
 import os
 import re
+from shutil import copyfile
 
 def clean(varStr):
     return re.sub('\W|^(?=\d)','_', varStr)
@@ -26,15 +27,14 @@ def write(ensemble_dict, cfg):
 
     filedir = os.path.dirname(os.path.abspath(__file__))
 
-    tree_count = 0
-    class_count = 1
-    for itree, trees in enumerate(ensemble_dict['trees']):
-        tree_count += len(trees)
-        if len(trees) > class_count:
-            class_count = len(trees)
+    tree_fields = ['feature', 'threshold', 'value',
+                'children_left', 'children_right', 'parent']
+    
+    n_total_nodes = sum(map(lambda t: len(t[tree_fields[0]]), [tree for class_group in ensemble_dict['trees'] for tree in class_group]))
 
     os.makedirs('{}'.format(cfg['OutputDir']))
-
+    copyfile('{}/firmware/DTEnsemble.h'.format(filedir),
+             '{}/DTEnsemble.h'.format(cfg['OutputDir']))
     dt_name = clean(cfg['ProjectName'])
     
     ###################
@@ -46,14 +46,15 @@ def write(ensemble_dict, cfg):
     fout.write('#define {}_HPP__\n'.format(dt_name.upper()))
     fout.write('\n')
     fout.write('#include <string_view>\n')
+    fout.write('namespace {\n')
     fout.write('namespace {}_description {{\n'.format(dt_name))
 
     fout.write('static constexpr const std::string_view node_label = "{}";\n'.format(dt_name));
 
+    fout.write('static const int n_total_nodes = {};\n'.format(
+        n_total_nodes))
     fout.write('static const int n_trees = {};\n'.format(
         ensemble_dict['n_trees']))
-    fout.write('static const int max_depth = {};\n'.format(
-        ensemble_dict['max_depth']))
     fout.write('static const int n_features = {};\n'.format(
         ensemble_dict['n_features']))
     fout.write('enum Feature {\n')
@@ -85,7 +86,7 @@ def write(ensemble_dict, cfg):
     fout.write(',\n'.join(
             map(
                 lambda i: '\t'+clean(str(i))+'', 
-                cfg.get('ClassList', [])
+                ensemble_dict.get('classes', [])
             )
         ) + '\n')
     fout.write('};\n')
@@ -98,7 +99,7 @@ def write(ensemble_dict, cfg):
     fout.write(',\n'.join(
         map(
             lambda i: '\t"'+str(i)+'"',
-            cfg.get('ClassList', [])
+            ensemble_dict.get('classes', [])
         )
     ) + '\n')
     fout.write('};\n')
@@ -106,9 +107,8 @@ def write(ensemble_dict, cfg):
     fout.write('#endif\n')
     fout.write('typedef {} input_t;\n'.format(cfg['Precision']))
     fout.write('typedef input_t input_arr_t[n_features];\n')
-    fout.write('typedef {} score_t;\n'.format(cfg['Precision']))
+    fout.write('typedef {} score_t;\n'.format("int" if ensemble_dict.get('direct', False) else cfg['Precision']))
     fout.write('typedef score_t score_arr_t[n_classes];\n')
-    # TODO score_arr_t
     fout.write('typedef input_t threshold_t;\n\n')
     
     if any('rules' in tree.keys() for trees in ensemble_dict['trees'] for tree in trees):
@@ -125,7 +125,7 @@ def write(ensemble_dict, cfg):
         )))
         fout.write('CLASSES: [{}]\\n\\\n'.format(','.join(map(
                 lambda i: '\''+clean(str(i))+'\'', 
-                cfg.get('ClassList', [])
+                ensemble_dict.get('classes', [])
             )
         )))
         for itree, trees in enumerate(ensemble_dict['trees']):
@@ -137,17 +137,13 @@ def write(ensemble_dict, cfg):
         fout.write('#endif\n')
         fout.write('#endif\n')
 
-
-    tree_fields = ['feature', 'threshold', 'value',
-                   'children_left', 'children_right', 'parent']
-
     fout.write(
-        "static const entree::BDT<node_label, n_trees, max_depth, n_classes, input_arr_t, score_t, threshold_t> bdt = \n")
+        "static const entree::DTEnsemble<node_label, n_total_nodes, n_trees, n_classes, input_arr_t, score_t, threshold_t, {}> bdt = \n".format("true" if ensemble_dict.get('direct', False) else "false"))
     fout.write("{ // The struct\n")
-    newline = "\t" + str(ensemble_dict['norm']) + ", // The normalisation\n"
+    newline = "\t" + str(ensemble_dict.get('norm', 1)) + ", // The normalisation\n"
     fout.write(newline)
     newline = "\t{"
-    if ensemble_dict['n_classes'] > 2:
+    if ensemble_dict['n_classes'] > 2 or ensemble_dict.get('direct', False):
         for iip, ip in enumerate(ensemble_dict['init_predict']):
             if iip < len(ensemble_dict['init_predict']) - 1:
                 newline += '{},'.format(ip)
@@ -156,34 +152,15 @@ def write(ensemble_dict, cfg):
     else:
         newline += str(ensemble_dict['init_predict'][0]) + '},\n'
     fout.write(newline)
-    fout.write("\t{ // The array of trees\n")
-    # loop over trees
-    for itree, trees in enumerate(ensemble_dict['trees']):
-        fout.write('\t\t{ // trees[' + str(itree) + ']\n')
-        # loop over classes
-        for iclass, tree in enumerate(trees):
-            fout.write('\t\t\t{ // [' + str(iclass) + ']\n')
-            # loop over fields
-            for ifield, field in enumerate(tree_fields):
-                newline = '\t\t\t\t{'
-                newline += ','.join(map(str, tree[field]))
-                newline += '}'
-                if ifield < len(tree_fields) - 1:
-                    newline += ','
-                newline += '\n'
-                fout.write(newline)
-            newline = '\t\t\t}'
-            if iclass < len(trees) - 1:
-                newline += ','
-            newline += '\n'
-            fout.write(newline)
-        newline = '\t\t}'
-        if itree < ensemble_dict['n_trees'] - 1:
-            newline += ','
-        newline += '\n'
-        fout.write(newline)
-    fout.write('\t}\n};\n')
+    fout.write("\t{" + ", ".join(["{" + ", ".join([str(len(tree['parent'])) for tree in trees]) + "}" for trees in ensemble_dict['trees']]) + "},\n")
+    for ifield, field in enumerate(tree_fields):
+        fout.write("\t{" + ", ".join([str(value) for trees in ensemble_dict['trees'] for tree in trees for value in tree[field]]) + "}")
+        if ifield < len(tree_fields) - 1:
+            fout.write(",")
+        fout.write("\n")
+    fout.write('};\n')
 
+    fout.write('}\n')
     fout.write('}\n')
     fout.write('\n#endif')
     fout.close()
@@ -191,7 +168,8 @@ def write(ensemble_dict, cfg):
 def auto_config():
     config = {'ProjectName': 'my_prj',
               'OutputDir': 'my-entree-prj',
-              'Precision': 'double'}
+              'Precision': 'double',
+              'DisablePadding': True}
     return config
 
 

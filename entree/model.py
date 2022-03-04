@@ -16,7 +16,7 @@ class model:
             self.config = config
         else:
             self.config = backend.auto_config()
-        self._ensembleDict = converter.convert(bdt, config.get('FeatureList', None))
+        self._ensembleDict = converter.convert(bdt, config.get('FeatureList', None), not config.get('DisablePadding', False))
 
     def set_config(self, config):
         self.config = config
