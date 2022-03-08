@@ -10,7 +10,7 @@ def getOptionValue(bdt, optionName):
         if optionName == option.get('name'):
             return option.text
 
-def convert(bdt):
+def convert(bdt, feature_cols=None):
   max_depth = int(getOptionValue(bdt, 'MaxDepth'))
   n_trees = int(getOptionValue(bdt, 'NTrees'))
   n_features = int(bdt.find('Variables').attrib['NVar'])

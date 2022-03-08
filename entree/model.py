@@ -11,12 +11,12 @@ import sys
 class model:
 
     def __init__(self, bdt, converter, backend=backends.xilinxhls, config=None):
-        self._ensembleDict = converter.convert(bdt)
         self.backend = backend
         if config is not None:
             self.config = config
         else:
             self.config = backend.auto_config()
+        self._ensembleDict = converter.convert(bdt, config.get('FeatureList', None))
 
     def set_config(self, config):
         self.config = config

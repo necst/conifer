@@ -6,7 +6,7 @@ import json
 from .converter import addParentAndDepth, padTree
 from ..model import model
 
-def convert(bdt):
+def convert(bdt, feature_cols=None):
     meta = json.loads(bdt.save_config())
     max_depth = int(meta['learner']['gradient_booster']['updater']['grow_colmaker']['train_param']['max_depth'])
     n_classes = int(meta['learner']['learner_model_param']['num_class'])

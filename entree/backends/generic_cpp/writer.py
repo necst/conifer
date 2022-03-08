@@ -59,7 +59,7 @@ def write(ensemble_dict, cfg):
     fout.write('static const int n_features = {};\n'.format(
         ensemble_dict['n_features']))
     fout.write('static const char* feature_labels[] = {\n')
-    fout.write(',\n'.join(map(lambda i: 'F'+str(i), range(0, len(cfg.get('FeatureList')))))+'\n')
+    fout.write(',\n'.join(map(lambda i: 'F'+str(i), range(0, len(cfg.get('FeatureList', [])))))+'\n')
     fout.write('};\n')
     fout.write('static const int n_classes = {};\n'.format(
         ensemble_dict['n_classes']))
@@ -116,6 +116,16 @@ def write(ensemble_dict, cfg):
         fout.write(newline)
     fout.write('\t}\n};')
     fout.write('}\n')
+
+    if any('rules' in tree.keys() for trees in ensemble_dict['trees'] for tree in trees):
+        fout.write('#define {}_ENTREE_RULES "\\\n'.format(dt_name.upper()))
+        for itree, trees in enumerate(ensemble_dict['trees']):
+            for iclass, tree in enumerate(trees):
+                if 'rules' in tree.keys():
+                    fout.write('TREE #{}-{}:\\\n'.format(itree, iclass))
+                    fout.write(tree['rules'].replace('\n', '\\\n'))
+        fout.write('"\n')
+
     fout.write('\n#endif')
     fout.close()
 
