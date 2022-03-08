@@ -1,3 +1,6 @@
+# This source file comes from the Conifer open-source project 
+# (https://github.com/thesps/conifer)
+
 add_files firmware/
 remove_files firmware/SimulationInput.vhd
 remove_files firmware/SimulationOutput.vhd

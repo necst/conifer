@@ -1,3 +1,6 @@
+-- This source file comes from the Conifer open-source project 
+-- (https://github.com/thesps/conifer)
+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.std_logic_misc.all;

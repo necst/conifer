@@ -1,10 +1,13 @@
+# This source file comes from the Conifer open-source project 
+# (https://github.com/thesps/conifer)
+
 from sklearn.datasets import load_iris
 from sklearn.ensemble import GradientBoostingClassifier
 import datetime
 import onnxmltools
 import onnx
 import numpy as np
-import conifer
+import entree
 import util
 import pytest
 
@@ -34,24 +37,24 @@ models = {'sklearn' : sklearn_model,
 predicts = {'sklearn' : util.predict,
             'onnx'    : util.predict_onnx}
 
-frontends = {'sklearn' : conifer.converters.sklearn,
-            'onnx'    : conifer.converters.onnx}
+frontends = {'sklearn' : entree.converters.sklearn,
+            'onnx'    : entree.converters.onnx}
 
-backends = {'xilinxhls' : conifer.backends.xilinxhls,
-            'vhdl'      : conifer.backends.vhdl}
+backends = {'xilinxhls' : entree.backends.xilinxhls,
+            'vhdl'      : entree.backends.vhdl}
 
 @pytest.mark.parametrize('frontend', ['sklearn', 'onnx'])
 @pytest.mark.parametrize('backend', ['xilinxhls', 'vhdl'])
 def test_multiclass(frontend, backend):
     clf, predictor = models[frontend]()
 
-    # Create a conifer config
-    cfg = conifer.backends.xilinxhls.auto_config()
+    # Create a entree config
+    cfg = entree.backends.xilinxhls.auto_config()
     # Set the output directory to something unique
     cfg['OutputDir'] = 'prj_{}'.format(int(datetime.datetime.now().timestamp()))
     cfg['Precision'] = 'ap_fixed<32,16,AP_RND,AP_SAT>'
     cfg['XilinxPart'] = 'xcu250-figd2104-2L-e'
-    cnf = conifer.model(clf, frontends[frontend],
+    cnf = entree.model(clf, frontends[frontend],
                         backends[backend], cfg)
     cnf.compile()
 

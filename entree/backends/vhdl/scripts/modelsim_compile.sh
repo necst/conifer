@@ -1,3 +1,6 @@
+# This source file comes from the Conifer open-source project 
+# (https://github.com/thesps/conifer)
+
 mkdir msimbdtlib
 vlib msimbdtlib/BDT
 vmap BDT msimbdtlib/BDT

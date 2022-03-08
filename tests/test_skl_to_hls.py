@@ -1,3 +1,6 @@
+# This source file comes from the Conifer open-source project 
+# (https://github.com/thesps/conifer)
+
 import pytest
 import util
 
@@ -20,39 +23,39 @@ def train_skl():
     
 @pytest.fixture
 def hls_convert(train_skl):
-    import conifer
+    import entree
     import datetime
 
     clf, X, y = train_skl
 
-    # Create a conifer config
-    cfg = conifer.backends.vivadohls.auto_config()
+    # Create a entree config
+    cfg = entree.backends.vivadohls.auto_config()
     cfg['Precision'] = 'ap_fixed<32,16,AP_RND,AP_SAT>'
     # Set the output directory to something unique
     cfg['OutputDir'] = 'prj_{}'.format(int(datetime.datetime.now().timestamp()))
     cfg['XilinxPart'] = 'xcu250-figd2104-2L-e'
 
     # Create and compile the model
-    model = conifer.model(clf, conifer.converters.sklearn, conifer.backends.vivadohls, cfg)
+    model = entree.model(clf, entree.converters.sklearn, entree.backends.vivadohls, cfg)
     model.compile()
     return model
 
 @pytest.fixture
 def vhdl_convert(train_skl):
-    import conifer
+    import entree
     import datetime
 
     clf, X, y = train_skl
 
-    # Create a conifer config
-    cfg = conifer.backends.vivadohls.auto_config()
+    # Create a entree config
+    cfg = entree.backends.vivadohls.auto_config()
     cfg['Precision'] = 'ap_fixed<32,16>'
     # Set the output directory to something unique
     cfg['OutputDir'] = 'prj_{}'.format(int(datetime.datetime.now().timestamp()))
     cfg['XilinxPart'] = 'xcu250-figd2104-2L-e'
 
     # Create and compile the model
-    model = conifer.model(clf, conifer.converters.sklearn, conifer.backends.vhdl, cfg)
+    model = entree.model(clf, entree.converters.sklearn, entree.backends.vhdl, cfg)
     model.compile()
     return model
 

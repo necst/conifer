@@ -1,3 +1,6 @@
+# This source file comes from the Conifer open-source project 
+# (https://github.com/thesps/conifer)
+
 import xml.etree.ElementTree as ET
 import numpy as np
 from .converter import addParentAndDepth, padTree

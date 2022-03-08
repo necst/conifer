@@ -1,3 +1,6 @@
+# This source file comes from the Conifer open-source project 
+# (https://github.com/thesps/conifer)
+
 import numpy as np
 import json
 from .converter import addParentAndDepth, padTree

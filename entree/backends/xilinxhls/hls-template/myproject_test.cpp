@@ -16,6 +16,10 @@
 //    You should have received a copy of the GNU General Public License
 //    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
+
+// This source file comes from the Conifer open-source project 
+// (https://github.com/thesps/conifer)
+
 #include <fstream>
 #include <iostream>
 #include <algorithm>

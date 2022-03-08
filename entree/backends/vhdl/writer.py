@@ -1,3 +1,6 @@
+# This source file comes from the Conifer open-source project 
+# (https://github.com/thesps/conifer)
+
 import os
 import sys
 from shutil import copyfile
@@ -169,14 +172,14 @@ def write(ensembleDict, cfg):
 
 def auto_config():
     config = {'ProjectName' : 'my-prj',
-              'OutputDir'   : 'my-conifer-prj',
+              'OutputDir'   : 'my-entree-prj',
               'Precision'   : 'ap_fixed<18,8>',
               'XilinxPart' : 'xcvu9p-flgb2104-2L-e',
               'ClockPeriod' : '5'}
     return config
 
 def sim_compile(config):
-  from conifer.backends.vhdl import simulator
+  from entree.backends.vhdl import simulator
   xsim_cmd = 'sh xsim_compile.sh > xsim_compile.log'
   msim_cmd = 'sh modelsim_compile.sh > modelsim_compile.log'
   cmdmap = {Simulators.modelsim : msim_cmd,
@@ -192,7 +195,7 @@ def sim_compile(config):
   return
 
 def decision_function(X, config, trees=False):
-    from conifer.backends.vhdl import simulator
+    from entree.backends.vhdl import simulator
     msim_cmd = 'vsim -c -do "vsim -L BDT -L xil_defaultlib xil_defaultlib.testbench; run -all; quit -f" > vsim.log'
     xsim_cmd = 'xsim -R bdt_tb > xsim.log'
     cmdmap = {Simulators.modelsim : msim_cmd,
@@ -241,7 +244,7 @@ def build(config, **kwargs):
         sys.exit()
             
 def write_sim_scripts(cfg, filedir, n_classes):
-  from conifer.backends.vhdl import simulator
+  from entree.backends.vhdl import simulator
   fmap = {Simulators.modelsim : write_modelsim_scripts,
           Simulators.xsim : write_xsim_scripts}
   fmap[simulator](cfg, filedir, n_classes)

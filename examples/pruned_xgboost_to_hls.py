@@ -1,9 +1,12 @@
+# This source file comes from the Conifer open-source project 
+# (https://github.com/thesps/conifer)
+
 # Example BDT creation from: https://xgboost.readthedocs.io/en/latest/get_started.html
 # With data import from: https://scikit-learn.org/stable/modules/ensemble.html
 
 from sklearn.datasets import make_hastie_10_2
 import xgboost as xgb
-import conifer
+import entree
 import datetime
 from scipy.special import expit
 
@@ -24,14 +27,14 @@ param = {'max_depth': 3, 'eta': 1, 'alpha': 10,
 num_round = 20  # num_round is equivalent to number of trees
 bst = xgb.train(param, dtrain, num_round)
 
-# Create a conifer config
-cfg = conifer.backends.xilinxhls.auto_config()
+# Create a entree config
+cfg = entree.backends.xilinxhls.auto_config()
 # Set the output directory to something unique
 cfg['OutputDir'] = 'prj_{}'.format(int(datetime.datetime.now().timestamp()))
 
 # Create and compile the model
-model = conifer.model(bst, conifer.converters.xgboost,
-                      conifer.backends.xilinxhls, cfg)
+model = entree.model(bst, entree.converters.xgboost,
+                      entree.backends.xilinxhls, cfg)
 model.compile()
 
 

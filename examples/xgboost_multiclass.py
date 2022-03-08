@@ -1,9 +1,12 @@
+# This source file comes from the Conifer open-source project 
+# (https://github.com/thesps/conifer)
+
 # Example BDT creation from: https://xgboost.readthedocs.io/en/latest/get_started.html
 # With data import from: https://scikit-learn.org/stable/auto_examples/datasets/plot_iris_dataset.html
 
 from sklearn.datasets import load_iris
 import xgboost as xgb
-import conifer
+import entree
 import datetime
 from scipy.special import softmax
 
@@ -16,16 +19,16 @@ bst = xgb.XGBClassifier(n_estimators=20, max_depth=3,
                         learning_rate=1., objective='multi:softmax')
 bst = bst.fit(X, y)
 
-# Create a conifer config
-cfg = conifer.backends.xilinxhls.auto_config()
+# Create a entree config
+cfg = entree.backends.xilinxhls.auto_config()
 # Set the output directory to something unique
 cfg['OutputDir'] = 'prj_{}'.format(int(datetime.datetime.now().timestamp()))
 
 # Create and compile the model
-# We need to pass the Booster object to conifer, so from xgboost's scikit-learn API,
+# We need to pass the Booster object to entree, so from xgboost's scikit-learn API,
 # we call bst.get_booster()
-model = conifer.model(
-    bst.get_booster(), conifer.converters.xgboost, conifer.backends.xilinxhls, cfg)
+model = entree.model(
+    bst.get_booster(), entree.converters.xgboost, entree.backends.xilinxhls, cfg)
 model.compile()
 
 # Run HLS C Simulation and get the output

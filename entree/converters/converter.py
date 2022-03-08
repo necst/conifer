@@ -1,3 +1,5 @@
+# This source file comes from the Conifer open-source project 
+# (https://github.com/thesps/conifer)
 
 def padTree(ensembleDict, treeDict):
   '''Pad a tree with dummy nodes if not perfectly balanced or depth < max_depth'''

@@ -1,10 +1,13 @@
+# This source file comes from the Conifer open-source project 
+# (https://github.com/thesps/conifer)
+
 # Example BDT creation from: https://scikit-learn.org/stable/modules/ensemble.html
 
 from sklearn.datasets import load_boston
 from sklearn.utils import shuffle
 from sklearn.ensemble import GradientBoostingRegressor
 import numpy as np
-import conifer
+import entree
 import datetime
 
 # Load Boston regression dataset
@@ -20,15 +23,15 @@ clf = GradientBoostingRegressor(n_estimators=100, max_depth=4, min_samples_split
                                 learning_rate=0.01, loss='ls')
 clf.fit(X_train, y_train)
 
-# Create a conifer config
-cfg = conifer.backends.xilinxhls.auto_config()
+# Create a entree config
+cfg = entree.backends.xilinxhls.auto_config()
 # Set the output directory to something unique
 cfg['OutputDir'] = 'prj_{}'.format(int(datetime.datetime.now().timestamp()))
 cfg['Precision'] = 'ap_fixed<64,32>'
 
 # Create and compile the model
-model = conifer.model(clf, conifer.converters.sklearn,
-                      conifer.backends.vhdl, cfg)
+model = entree.model(clf, entree.converters.sklearn,
+                      entree.backends.vhdl, cfg)
 model.compile()
 
 # Run HLS C Simulation and get the output
