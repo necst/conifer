@@ -70,12 +70,12 @@ int main(int argc, char **argv)
         fout << score[i] << " ";
       }
       fout << std::endl;
-      for(int  i = 0; i < n_trees; i++){
+      /*for(int  i = 0; i < n_trees; i++){
           for(int j = 0; j < BDT::fn_classes(n_classes); j++){
             ftrees << tree_scores[i * BDT::fn_classes(n_classes) + j] << " ";
           }
       }
-      ftrees << std::endl;
+      ftrees << std::endl;*/
 
       if (e % CHECKPOINT == 0) {
         std::cout << "Quantized predictions" << std::endl;

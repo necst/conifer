@@ -26,9 +26,9 @@ if {$opt(reset)} {
 }
 
 set_top myproject
-add_files firmware/BDT.h -cflags "-std=c++0x"
-add_files firmware/myproject.cpp -cflags "-std=c++0x"
-add_files -tb myproject_test.cpp -cflags "-I firmware/ -std=c++0x"
+add_files firmware/BDT.h -cflags "-std=gnu++14"
+add_files firmware/myproject.cpp -cflags "-std=gnu++14"
+add_files -tb myproject_test.cpp -cflags "-I firmware/ -std=gnu++14"
 add_files -tb firmware/weights
 add_files -tb tb_data
 if {$opt(reset)} {
