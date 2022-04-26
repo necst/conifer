@@ -57,6 +57,7 @@ def get_hls():
 
     return tool_exe
 
+#TODO: extend compatibility for MPSoC
 
 def write(ensemble_dict, cfg):
 
