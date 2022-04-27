@@ -30,6 +30,8 @@ _TOOLS = {
     'vitishls': 'vitis_hls'
 }
 
+# Templates directory:
+env = Environment(loader=FileSystemLoader('entree/backends/xilinxhls'))
 
 def get_tool_exe_in_path(tool):
     if tool not in _TOOLS.keys():
@@ -97,30 +99,21 @@ def write(ensemble_dict, cfg):
                     '{}/{}_reconfigurable_system/scripts/tcl/{}'.format(cfg['OutputDir'], cfg['ProjectName'], entry.name)
                 )
 
-env = Environment(loader=FileSystemLoader('entree/backends/write_templates'))
 
     ###################
     # myproject.cpp
     ###################
-# 1
-###################################################################################################################################
-###################################################################################################################################
-################################# M Y P R O J E C T . C P P #######################################################################
-###################################################################################################################################
-###################################################################################################################################
 
-template = env.get_template('myproject.cpp')
+template = env.get_template('hls-template/firmware/myproject.cpp.jinja')
 
-output = template.render(
+output = template.stream(
     projectname=cfg['ProjectName'],
     cfg_get=cfg.get('PDR', False),
     bank_count=bank_count,
     ensemble_trees=enumerate(ensemble_dict['trees']),
     enumerate_tree=enumerate(trees),
     class_count=class_count
-)
-with open('{}/firmware/{}.cpp'.format(cfg['OutputDir'], cfg['ProjectName']), 'w') as myproject:
-    myproject.write(output)
+    ).dump('{}/firmware/{}.cpp'.format(cfg['OutputDir'], cfg['ProjectName']), 'w')
     
     ###################
     # parameters.h
@@ -131,7 +124,7 @@ with open('{}/firmware/{}.cpp'.format(cfg['OutputDir'], cfg['ProjectName']), 'w'
 ################################# P A R A M E T E R S . H #########################################################################
 ###################################################################################################################################
 ###################################################################################################################################
-
+"""
 template = env.get_template('parameters.h')
 
 output = template.render(
@@ -661,7 +654,7 @@ env.filters["log"] = math.log
         
         f.close()
         fout.close()
-
+"""
 def auto_config():
     config = {'ProjectName': 'my_prj',
               'OutputDir': 'my-entree-prj',
