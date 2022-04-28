@@ -18,13 +18,13 @@
 #include "utils.h"
 #include "ap_axi_sdata.h"
 
-{{"static const int n_trees = %d;"|format(ensemble_dict['n_trees']) }}
-{{"static const int max_depth = %d;"|format(ensemble_dict['max_depth']) }}
-{{"static const int n_features = %d;"|format(ensemble_dict['n_features']) }}
-{{"static const int n_classes = %d;"|format(ensemble_dict['n_classes']) }}
-{{"typedef %d input_t;"|format(cfg['Precision']) }}
+{{"static const int n_trees = %s;"|format(ensemble_dict['n_trees']) }}
+{{"static const int max_depth = %s;"|format(ensemble_dict['max_depth']) }}
+{{"static const int n_features = %s;"|format(ensemble_dict['n_features']) }}
+{{"static const int n_classes = %s;"|format(ensemble_dict['n_classes']) }}
+{{"typedef %s input_t;"|format(cfg['Precision']) }}
 typedef input_t input_arr_t[n_features];
-{{"typedef %d score_t;"|format(cfg['Precision']) }}
+{{"typedef %s score_t;"|format(cfg['Precision']) }}
 typedef score_t score_arr_t[n_classes];
     # TODO score_arr_t
 typedef input_t threshold_t;
@@ -69,16 +69,13 @@ typedef input_t threshold_t;
         {"{ // [%s]"|string(iclass)  %}
         // loop over fields
             {%- for ifield, field in enumerate(tree_fields) %}
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
-                {%- set newline = "{, ?? }"|format(join(map(str, tree[field])) %}
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                {%- set newline = "{, %s }"|format(join_map_tree) %}
                 {%- if ifield < len(tree_fields) - 1 %}
                     {% set newline ="%s , \n"|format(newline) %}
                 {%- endif %}
                 {{- newline}}
             {%- endfor %}
-            {%- set newline ="%s"|newline%}
+            {%- set newline ="%s"|format(newline)%}
             {%- if iclass < len(trees) - 1 %}
                 {%- set newline ="%s , \n"|format(newline) %}
             {{newline}}
