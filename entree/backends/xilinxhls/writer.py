@@ -106,14 +106,19 @@ def write(ensemble_dict, cfg):
 
 template = env.get_template('hls-template/firmware/myproject.cpp.jinja')
 
-output = template.stream(
+    tree_ips=[]
+    for itree, trees in enumerate(ensemble_dict['trees']):
+         for iclass, tree in enumerate(trees):
+            tree_ips.append({"itree": itree, "trees": trees, "iclass": iclass, "tree": tree})
+
+    template.stream(
     projectname=cfg['ProjectName'],
     cfg_get=cfg.get('PDR', False),
     bank_count=bank_count,
-    ensemble_trees=enumerate(ensemble_dict['trees']),
-    enumerate_tree=enumerate(trees),
+        tree_ips=tree_ips,
+        range_bank_count=range(1, bank_count + 1),
     class_count=class_count
-    ).dump('{}/firmware/{}.cpp'.format(cfg['OutputDir'], cfg['ProjectName']), 'w')
+    ).dump('{}/firmware/{}.cpp'.format(cfg['OutputDir'], cfg['ProjectName']))
     
     ###################
     # parameters.h
