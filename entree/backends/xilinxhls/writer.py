@@ -107,7 +107,9 @@ def write(ensemble_dict, cfg):
 template = env.get_template('hls-template/firmware/myproject.cpp.jinja')
 
     tree_ips=[]
+    # loop over trees
     for itree, trees in enumerate(ensemble_dict['trees']):
+        # loop over classes
          for iclass, tree in enumerate(trees):
             tree_ips.append({"itree": itree, "trees": trees, "iclass": iclass, "tree": tree})
 
@@ -123,24 +125,41 @@ template = env.get_template('hls-template/firmware/myproject.cpp.jinja')
     ###################
     # parameters.h
     ###################
-# 2
-###################################################################################################################################
-###################################################################################################################################
-################################# P A R A M E T E R S . H #########################################################################
-###################################################################################################################################
-###################################################################################################################################
-"""
-template = env.get_template('parameters.h')
 
-output = template.render(
-    cfg=cfg,
-    ensemble_dict_n=ensemble_dict,
+    template = env.get_template('hls-template/firmware/parameters.h.jinja')
+    
+    tree_fields = ['feature', 'threshold', 'value',
+               'children_left', 'children_right', 'parent']
+
+    tree_ips_fields=[]
+    # loop over trees
+    for itree, trees in enumerate(ensemble_dict['trees']):
+        # loop over classes
+        for iclass, tree in enumerate(trees):
+            # loop over fields
+            for ifield, field in enumerate(tree_fields):
+                map_tree=','.join(map(str, tree[field]))
+                tree_ips_fields.append({"itree": itree, "trees": trees, "iclass": iclass, "tree": tree,"ifield": ifield, "field": field,"map_tree": map_tree})
+
+    template.stream(
+        cfg_get_PDR=cfg.get('PDR', False),
+        Precision=cfg['Precision'],
+        n_trees=ensemble_dict['n_trees'],
+        max_depth=ensemble_dict['max_depth'],
+        n_features=ensemble_dict['n_features'],
+        n_classes=ensemble_dict['n_classes'],
+        norm=str(ensemble_dict['norm']),
+        init_predict=str(ensemble_dict['init_predict'][0]),
+        len_init_predict=len(ensemble_dict['init_predict']),
+        enumerate_init_predict=enumerate(ensemble_dict['init_predict']),
+        trees=ensemble_dict['trees'],
+        len_tree_fields=len(tree_fields),
+        tree_ips=tree_ips_fields,
+        len_trees=len(trees),
+        len_tree=len(tree),
     bank_count=bank_count,
     max_parallel_samples = 6
-)
-
-with open('{}/firmware/parameters.h'.format(cfg['OutputDir']), 'w') as parameters_h:
-    parameters_h.write(output)
+    ).dump('{}/firmware/parameters.h'.format(cfg['OutputDir']))
 
 
     #######################

@@ -1,95 +1,80 @@
-
-//    fout = open('{}/firmware/parameters.h'.format(cfg['OutputDir']), 'w')
-
-// cfg=cfg
-// esnemble_dict_n=ensemble_dict
-// bank_count=bank_count
-//max_parallel_samples = 6
-// 
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////// D O N E ? /////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-#ifndef BDT_PARAMS_H__\n#define BDT_PARAMS_H__
+#ifndef BDT_PARAMS_H__
+#define BDT_PARAMS_H__ {{"\n"}}
 #include "BDT.h"
-#include "ap_fixed.h"
-{%- if cfg_get %}
+#include "ap_fixed.h" {{"\n"}}
+{%- if cfg_get_PDR %}
 #include "utils.h"
 #include "ap_axi_sdata.h"
 
-{{"static const int n_trees = %s;"|format(ensemble_dict['n_trees']) }}
-{{"static const int max_depth = %s;"|format(ensemble_dict['max_depth']) }}
-{{"static const int n_features = %s;"|format(ensemble_dict['n_features']) }}
-{{"static const int n_classes = %s;"|format(ensemble_dict['n_classes']) }}
-{{"typedef %s input_t;"|format(cfg['Precision']) }}
+{{"static const int n_trees = %s;"|format(n_trees) }}
+{{"static const int max_depth = %s;"|format(max_depth) }}
+{{"static const int n_features = %s;"|format(n_features) }}
+{{"static const int n_classes = %s;"|format(n_classes) }}
+{{"typedef %s input_t;"|format(Precision) }}
 typedef input_t input_arr_t[n_features];
-{{"typedef %s score_t;"|format(cfg['Precision']) }}
+{{"typedef %s score_t;"|format(Precision) }}
 typedef score_t score_arr_t[n_classes];
-    # TODO score_arr_t
-typedef input_t threshold_t;
+    {#- TODO score_arr_t #}
+typedef input_t threshold_t; {{"\n"}}
+    {%- if cfg_get_PDR %}
+        {#- TODO: Allow max_parallel_sample configuration #}
+{{"static const int max_parallel_samples = %d;"|format(max_parallel_samples) }}
+{{"static const int bank_count = %d;"|format(bank_count) }}
+static const int sample_id_size = bitsizeof(max_parallel_samples);
+static const int bank_address_size = bitsizeof(bank_count + 1);
+typedef hls::axis<ap_uint<8>, 0, 0, bank_address_size> bank_command_s_t;
+typedef hls::axis<input_arr_t, 0, 0, 0> idless_input_arr_s_t;
+typedef hls::axis<input_arr_t, 0, sample_id_size, 0> input_arr_s_t;
+typedef hls::axis<score_t, 0, sample_id_size, bitsizeof(n_classes)> tree_score_s_t;
+typedef hls::axis<score_t, 0, sample_id_size, 0> class_score_s_t;
+    {%- endif %}
 
-    {% if cfg.get('PDR', False) %}
-        # TODO: Allow max_parallel_sample configuration
-        {{"static const int max_parallel_samples = %d;"|format(max_parallel_samples) }}
-        {{"static const int bank_count = %d;"|format(bank_count) }}
-        static const int sample_id_size = bitsizeof(max_parallel_samples);
-        static const int bank_address_size = bitsizeof(bank_count + 1);
-        typedef hls::axis<ap_uint<8>, 0, 0, bank_address_size> bank_command_s_t;
-        typedef hls::axis<input_arr_t, 0, 0, 0> idless_input_arr_s_t;
-        typedef hls::axis<input_arr_t, 0, sample_id_size, 0> input_arr_s_t;
-        typedef hls::axis<score_t, 0, sample_id_size, bitsizeof(n_classes)> tree_score_s_t;
-        typedef hls::axis<score_t, 0, sample_id_size, 0> class_score_s_t;
-    {% endif %}
-    tree_fields = ['feature', 'threshold', 'value',
-                   'children_left', 'children_right', 'parent']
-
-    static const BDT::BDT<n_trees, max_depth, n_classes, input_arr_t, score_t, threshold_t> bdt = 
-    { // The struct
-    {{"%s, // The normalisation"|format(string(ensemble_dict['norm'])) }}
-    {%- set newline = "{" %}
-    {%- if ensemble_dict['n_classes'] > 2 %}
-        {%- for iip, ip in enumerate(ensemble_dict['init_predict']) %}
-            {%- if iip < len(ensemble_dict['init_predict']) - 1 %}
-                {%- set newpath = "%s,"|format(ip) %}
-                {%- set newline = "%s %s"|format(newline,newpath) %}
+static const BDT::BDT<n_trees, max_depth, n_classes, input_arr_t, score_t, threshold_t> bdt = 
+{ // The struct
+    {{"%s, // The normalisation"|format(norm) }}
+    {%- set newline = namespace(newpath="{") %}
+    {%- if n_classes > 2 %}
+        {%- for iip, ip in enumerate_init_predict %}
+            {%- if iip < len_init_predict - 1 %}
+                {%- set newline.newpath ="%s%1.16f,"|format(newline.newpath,ip|float) %}
             {%- else %}
-                {%- set newline ="%s %d}}, // The init_predict"|format(newline,ip) %}
+                {%- set newline.newpath ="%s%1.16f}, // The init_predict"|format(newline.newpath,ip|float) %}
             {%- endif %}
         {%- endfor %}
     {%- else %}
-        {%- set newline = "%s %s},"|format(newline,string(ensemble_dict['init_predict'][0]))  %}
+        {%- set newline.newpath = "%s %1.16f},"|format(newline.newpath,init_predict|float)  %}
     {%- endif %}
-    {{-newline}}
+    {{ newline.newpath}}
+    { // The array of trees
 
-    {%- for itree, trees in enumerate(ensemble_dict['trees']) %}
-    {{"{ // trees[%s]"|format(string(itree)) }}
-    // loop over classes
-        {%- for iclass, tree in enumerate(trees) %}
-        {"{ // [%s]"|string(iclass)  %}
-        // loop over fields
-            {%- for ifield, field in enumerate(tree_fields) %}
-                {%- set newline = "{, %s }"|format(join_map_tree) %}
-                {%- if ifield < len(tree_fields) - 1 %}
-                    {% set newline ="%s , \n"|format(newline) %}
+    {%- for tree_ip in tree_ips %}
+    {%- if tree_ip.ifield == 0 %}
+        {%- if tree_ip.iclass == 0 %}
+        {{"{ // trees[%d]"|format(tree_ip.itree) }}
+        {%- endif %}
+            {{"{ // [%d]"|format(tree_ip.iclass) }}
+    {%- endif %}
+                {%- set newline = "{%s}"|format(tree_ip.map_tree) %}
+                {%- if tree_ip.ifield < len_tree_fields - 1 %}
+                {%- set newline="%s,"|format(newline) %}
                 {%- endif %}
-                {{- newline}}
-            {%- endfor %}
-            {%- set newline ="%s"|format(newline)%}
-            {%- if iclass < len(trees) - 1 %}
-                {%- set newline ="%s , \n"|format(newline) %}
-            {{newline}}
+                {{newline}}
+        {%- if tree_ip.ifield == len_tree_fields - 1 %}
+            {%- set newline_field = "}"%}
+            {%- if tree_ip.iclass < len_trees - 1 %}
+            {%- set newline_field = '%s,'|format(newline_field) %}
             {%- endif %}
-        {%- endfor %}
-        {%- set newline = "}"%}
-        {%- if itree < ensemble_dict['n_trees'] - 1 %}
-            {%- set newline ="%s , \n"|format(newline) %}
-        {{-newline}}
+            {{newline_field}}
+            {%- if tree_ip.iclass == len_trees - 1 %}
+            {%- set newline_trees = "}"%}
+                {%- if tree_ip.itree < n_trees - 1 %}
+                {%- set newline_trees = '%s,'|format(newline_trees) %}
+                {%- endif %}
+        {{newline_trees}}
+            {%- endif %}
         {%- endif %}
     {%- endfor%}
     }
 };
-
-    #endif
-
-{% endif %}
+#endif
+{%- endif %}
