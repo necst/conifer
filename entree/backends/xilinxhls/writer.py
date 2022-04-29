@@ -104,22 +104,22 @@ def write(ensemble_dict, cfg):
     # myproject.cpp
     ###################
 
-template = env.get_template('hls-template/firmware/myproject.cpp.jinja')
-
+    template = env.get_template('hls-template/firmware/myproject.cpp.jinja')
+    
     tree_ips=[]
     # loop over trees
     for itree, trees in enumerate(ensemble_dict['trees']):
         # loop over classes
-         for iclass, tree in enumerate(trees):
-            tree_ips.append({"itree": itree, "trees": trees, "iclass": iclass, "tree": tree})
-
+        for iclass, tree in enumerate(trees):
+                tree_ips.append({"itree": itree, "trees": trees, "iclass": iclass, "tree": tree})
+    
     template.stream(
-    projectname=cfg['ProjectName'],
-    cfg_get=cfg.get('PDR', False),
-    bank_count=bank_count,
+        projectname=cfg['ProjectName'],
+        cfg_get=cfg.get('PDR', False),
+        bank_count=bank_count,
         tree_ips=tree_ips,
         range_bank_count=range(1, bank_count + 1),
-    class_count=class_count
+        class_count=class_count
     ).dump('{}/firmware/{}.cpp'.format(cfg['OutputDir'], cfg['ProjectName']))
     
     ###################
@@ -157,45 +157,45 @@ template = env.get_template('hls-template/firmware/myproject.cpp.jinja')
         tree_ips=tree_ips_fields,
         len_trees=len(trees),
         len_tree=len(tree),
-    bank_count=bank_count,
-    max_parallel_samples = 6
+        bank_count=bank_count,
+        max_parallel_samples = 6
     ).dump('{}/firmware/parameters.h'.format(cfg['OutputDir']))
 
 
     #######################
     # myproject.h
     #######################
-# 3
-###################################################################################################################################
-###################################################################################################################################
-################################# M Y P R O J E C T . H ###########################################################################
-###################################################################################################################################
-###################################################################################################################################
-        
+  
 
-template = env.get_template('myproject.h')
+    template = env.get_template('hls-template/firmware/myproject.h.jinja')
 
-output = template.render(
-    cfg_get=cfg.get('PDR', False),
-    ensemble_trees=enumerate(ensemble_dict['trees']),
-    projectname=cfg['ProjectName'],
-    bank_count=bank_count,
-    enumerate_tree=enumerate(trees)
-)
+    # VOTING STATION IPs
+    class_count = 1
+    for itree, trees in enumerate(ensemble_dict['trees']):
+         if len(trees) > class_count:
+             class_count = len(trees)
 
-with open('{}/firmware/{}.h'.format(cfg['OutputDir'], cfg['ProjectName']), 'w') as myproject_h:
-    myproject_h.write(output)
+    template.stream(
+        cfg_get=cfg.get('PDR', False),
+        projectname=cfg['ProjectName'],
+        range_bank_count=range(1, bank_count + 1),
+        ensemble_trees=enumerate(ensemble_dict['trees']),
+        bank_count=bank_count,
+        enumerate_tree=enumerate(trees),
+        tree_ips=tree_ips,
+        range_class_count=range(class_count)
+    ).dump('{}/firmware/{}.h'.format(cfg['OutputDir'], cfg['ProjectName']))
 
     #######################
     # myproject_test.cpp
     #######################
+"""
 # 4
 ###################################################################################################################################
 ###################################################################################################################################
 ################################# M Y P R O J E C T _ T E S T. C P P ##############################################################
 ###################################################################################################################################
 ###################################################################################################################################
-
 
 
     if cfg.get('PDR', False) == False:
@@ -255,7 +255,7 @@ with open('{}/firmware/{}.h'.format(cfg['OutputDir'], cfg['ProjectName']), 'w') 
     )
 
     with fout as build_prj_tcl:
-    build_prj_tcl.write(output)
+        build_prj_tcl.write(output)
 
     file.close()
     fout.close()
@@ -266,20 +266,20 @@ with open('{}/firmware/{}.h'.format(cfg['OutputDir'], cfg['ProjectName']), 'w') 
             file = open(os.path.join(filedir, 'hls-template/build_pdr_ip.tcl'), 'r')
             fout = open('{}/build_pdr_ips/bank_buffer_{}.tcl'.format(cfg['OutputDir'], ibank), 'w')
 
-                task='bank_buffer'
+            task='bank_buffer'
             
-                output = template.render(
-                    task=task,
-                    cfg=cfg,
-                    cfg_get=False,
-                    file=file,
-                    ensemble_trees=enumerate(zip(first, second, third)),
-                    projectname='Supercalifragilistiche',
-                    bank_count=10,
-                    enumerate_tree=enumerate(zip(first, second, third))
-                )
-            
-                with fout as build_prj_tcl:
+            output = template.render(
+                task=task,
+                cfg=cfg,
+                cfg_get=False,
+                file=file,
+                ensemble_trees=enumerate(zip(first, second, third)),
+                projectname='Supercalifragilistiche',
+                bank_count=10,
+                enumerate_tree=enumerate(zip(first, second, third))
+            )
+        
+            with fout as build_prj_tcl:
                     build_prj_tcl.write(output)
 
             file.close()
@@ -304,7 +304,7 @@ with open('{}/firmware/{}.h'.format(cfg['OutputDir'], cfg['ProjectName']), 'w') 
                 )
 
                 with fout as build_prj_tcl:
-                build_prj_tcl.write(output)
+                    build_prj_tcl.write(output)
 
                 file.close()
                 fout.close()
@@ -435,22 +435,22 @@ with open('{}/firmware/{}.h'.format(cfg['OutputDir'], cfg['ProjectName']), 'w') 
 
 env.filters["log"] = math.log
 
-    if cfg.get('PDR', False) == True:
-        
-        template = env.get_template('build_system_bd.tcl')
+if cfg.get('PDR', False) == True:
+    
+    template = env.get_template('build_system_bd.tcl')
 
 
-        output = template.render(
-            cfg=cfg,
-            file =open(os.path.join(filedir, 'system-template/top_system.tcl'), 'r'),
-            class_count=class_count,
-            bank_count=bank_count,
-            ensemble_dict=ensemble_dict,
-            max_parallel_samples=max_parallel_samples
-        )
+    output = template.render(
+        cfg=cfg,
+        file =open(os.path.join(filedir, 'system-template/top_system.tcl'), 'r'),
+        class_count=class_count,
+        bank_count=bank_count,
+        ensemble_dict=ensemble_dict,
+        max_parallel_samples=max_parallel_samples
+    )
 
-        with open('{}/build_system_bd.tcl'.format(cfg['OutputDir']), 'w') as build_system_bd_tcl:
-            build_system_bd_tcl.write(output)
+    with open('{}/build_system_bd.tcl'.format(cfg['OutputDir']), 'w') as build_system_bd_tcl:
+        build_system_bd_tcl.write(output)
         
 
 
@@ -679,6 +679,7 @@ env.filters["log"] = math.log
         f.close()
         fout.close()
 """
+
 def auto_config():
     config = {'ProjectName': 'my_prj',
               'OutputDir': 'my-entree-prj',
