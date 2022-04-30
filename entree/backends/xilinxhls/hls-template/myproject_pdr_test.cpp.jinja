@@ -39,7 +39,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include "firmware/myproject.h"
+{{'#include "firmware/%s.h"'|format(projectname)}}
 #include "firmware/parameters.h"
 #include "firmware/BDT.h"
 
@@ -134,12 +134,58 @@ int main(int argc, char **argv)
       }
 
       input_arr_s_t in_pkt;
-      //hls-fpga-machine-learning insert data
+      {%- set newline = '//hls-fpga-machine-learning insert data\n' %}
+      {%- set newline ="%s      std::vector<float>::const_iterator in_begin = in.cbegin(); \n"|format(newline) %}
+      {%- set newline ="%s      std::vector<float>::const_iterator in_end;\n"|format(newline) %}
+      {%- set newline ="%s      input_arr_t x;\n"|format(newline) %}
+      {%- set newline ="%s      in_end = in_begin + (%d);\n"|format(newline,n_features) %}
+      {%- if not cfg_get %}
+          {%- set newline ="%s      std::copy(in_begin, in_end, x);\n"|format(newline) %}
+      {%- else %}
+          {%- set newline ="%s      std::copy(in_begin, in_end, in_pkt.data);\n"|format(newline) %}
+      {%- endif %}
+      {%- set newline ="%s      in_begin = in_end;\n"|format(newline) %}
+      {#- brace-init zeros the array out because we use std=c++0x #}
+      {%- set newline ="%s      score_arr_t score{};\n"|format(newline) %}
+      {%- set newline ="%s      score_t tree_scores[BDT::fn_classes(n_classes) * n_trees]{};\n"|format(newline) %}
+      {#- but we can still explicitly zero out if you want #}
+      {%- set newline ="%s      std::fill_n(score, %d, 0.);\n"|format(newline,n_classes) %}
+      {%- if cfg_get %}
+          {%- set newline ="%s      sample_stream[0] << in_pkt;"|format(newline) %}
+      {%- endif %}
+      {{newline}}
       curr_id = (curr_id + 1) % max_parallel_samples;
-      in_pkt.id = curr_id;
+      in_pkt.id = curr_id; {{"\n"}}
 
-      //hls-fpga-machine-learning insert top-level-function
-      
+      {%- set newline = '//hls-fpga-machine-learning insert top-level-function \n' %}
+      {%- if not cfg_get %} 
+          {%- set top_level = "%s    %s(x, score/*, tree_scores*/);\n"|format(intent,projectname) %}
+      {%- else %}
+          {#- // TODO: Use all the bank buffers and test reconfiguration #}
+          {#- // TODO: Use vote buffers #}
+          {%- set top_level = "%s     bank_command_s_t command_pkt;\n"|format(intent) %}
+          {%- set top_level = "%s      %scommand_pkt.data = 0b00111111;\n"|format(top_level,intent) %}
+          {%- set top_level = "%s      %scommand_pkt.dest = 0;\n"|format(top_level,intent) %}
+          {%- set top_level = "%s      %sbank_command_stream[0] << command_pkt;\n"|format(top_level,intent) %}
+          {%- set top_level = "%s      %s%s__bank_buffer_1(sample_stream[0], bank_stream[0], bank_command_stream[0]);\n"|format(top_level,intent,projectname) %}
+          {%- set top_level = "%s      %saxis_crossbar<input_arr_s_t, 1, n_trees * n_classes>(bank_stream, tree_stream);\n"|format(top_level,intent) %}
+          {%- set ns = namespace(top_level=top_level) %}
+          {%- for tree_ip in tree_ips %}
+            {%- set ns.top_level %}
+{{- ns.top_level}}    {{intent}}  {{projectname}}__tree_cl{{tree_ip.iclass}}_{{tree_ip.itree}}(tree_stream[{{tree_ip.itree}} * n_classes + {{tree_ip.iclass}}], aux_score_stream[{{tree_ip.itree}} * n_classes + {{tree_ip.iclass}}]);{{"\n"}}
+    {{-intent}}      tree_scores[{{tree_ip.itree}} * n_classes + {{tree_ip.iclass}}] = tee<tree_score_s_t, score_t>(aux_score_stream[{{tree_ip.itree}} * n_classes + {{tree_ip.iclass}}], score_stream[{{tree_ip.itree}} * n_classes + {{tree_ip.iclass}}]); {{"\n"}}
+            {%- endset %}                
+          {%- endfor %}
+          {%- set top_level = "%s %s     axis_crossbar<tree_score_s_t, n_trees * n_classes, n_classes>(score_stream, in_class_stream);\n"|format(ns.top_level,intent) %}
+          {%- set ns = namespace(top_level=top_level) %}
+          {%- for iclass in range(class_count) %}
+              {%- set ns.top_level = "%s %s     while(!in_class_stream[%d].empty()) {\n"|format(ns.top_level,intent,iclass) %}
+              {%- set ns.top_level = "%s %s       %s__voting_station_cl%d(in_class_stream[%d], out_class_stream[%d]);\n"|format(ns.top_level,intent,projectname,iclass,iclass,iclass) %}
+              {%- set ns.top_level = "%s %s     }\n"|format(ns.top_level,intent) %}
+          {%- endfor %}
+      {%- endif %}
+      {%- set newline="%s %s"|format(newline,ns.top_level) %}
+      {{newline}}
       for(int  i = 0; i < n_trees; i++){
           for(int j = 0; j < BDT::fn_classes(n_classes); j++){
             ftrees << tree_scores[i * BDT::fn_classes(n_classes) + j] << " ";
@@ -152,12 +198,28 @@ int main(int argc, char **argv)
     	tree_score_s_t pkt;
 		  pkt.last = true;
     	in_class_stream[i] << pkt;
-    }
+    }{{"\n"}}
 
-    //hls-fpga-machine-learning insert final-round
-
+    {%- set ns=namespace(newlines = '//hls-fpga-machine-learning insert final-round\n') %}
+    {%- if cfg_get %}
+        {%- for iclass in range(class_count) %}
+            {%- set ns.newlines="%s %s   %s__voting_station_cl%d(in_class_stream[%d], out_class_stream[%d]);\n"|format(ns.newlines,intent,projectname,iclass,iclass,iclass) %}
+        {%- endfor%}
+    {%- endif%}
+    {{ns.newlines}}
     while(
-      //hls-fpga-machine-learning insert stream-check
+      {%- set newline = '//hls-fpga-machine-learning insert stream-check\n' %}
+      {%- if cfg_get %}
+          {%- set ns=namespace(out="%s%s      "|format(newline,intent)) %}
+          {%- for iclass in range(class_count) %}
+              {%- set ns.out = '%s!out_class_stream[%d].empty()'|format(ns.out,iclass) %}
+              {%- if iclass < class_count - 1 %}
+                  {%- set ns.out = '%s && '|format(ns.out) %}
+              {%- else %}
+              {%- endif %}
+          {%- endfor %}
+      {%- endif %}
+      {{ns.out}}
     ) {
 
       for(int i = 0; i < BDT::fn_classes(n_classes); i++){
@@ -183,4 +245,4 @@ int main(int argc, char **argv)
   std::cout << "INFO: Saved inference results to file: " << RESULTS_LOG << std::endl;
 
   return 0;
-}
+}{{"\n"}}

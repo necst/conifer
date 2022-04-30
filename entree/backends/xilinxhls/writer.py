@@ -189,39 +189,29 @@ def write(ensemble_dict, cfg):
     #######################
     # myproject_test.cpp
     #######################
-"""
-# 4
-###################################################################################################################################
-###################################################################################################################################
-################################# M Y P R O J E C T _ T E S T. C P P ##############################################################
-###################################################################################################################################
-###################################################################################################################################
-
 
     if cfg.get('PDR', False) == False:
-        file = open(os.path.join(filedir, 'hls-template/myproject_test.cpp'))
+        template = env.get_template( 'hls-template/myproject_test.cpp.jinja')
     else:
-        file = open(os.path.join(filedir, 'hls-template/myproject_pdr_test.cpp'))
+        template = env.get_template( 'hls-template/myproject_pdr_test.cpp.jinja')
 
-    env.filters["lstrip"] = sys.lstrip
-    template = env.get_template('myproject_test.cpp')
-
-    output = template.render(
-        file=file,
-        cfg=cfg,
-        ensemble_trees=ensemble_trees,
-        class_count=class_count
-
-    )
-
-    with open('{}/{}_test.cpp'.format(cfg['OutputDir'], cfg['ProjectName']), 'w') as myproject_test_cpp:
-        myproject_test_cpp.write(output)
+    template.stream(
+        n_features=ensemble_dict['n_features'],
+        n_classes=ensemble_dict['n_classes'],
+        cfg_get=cfg.get('PDR', False),
+        projectname=cfg['ProjectName'],
+        class_count=class_count,
+        tree_ips=tree_ips,
+        enumerate_tree=enumerate(trees),
+        ensemble_trees=enumerate(ensemble_dict['trees']),
+        indent='    '
+    ).dump('{}/{}_test.cpp'.format(cfg['OutputDir'], cfg['ProjectName']))
 
 
     #######################
     # build_prj.tcl
     #######################
-
+"""
 # 5
 ###################################################################################################################################
 ###################################################################################################################################
