@@ -35,27 +35,40 @@ foreach arg $::argv {
 file mkdir tb_data
 
 if {$opt(reset)} {
-    open_project -reset myproject_prj
+    open_project -reset {{ProjectName}}_prj
 } else {
-    open_project myproject_prj
+    open_project {{ProjectName}}_prj
 }
 
 set_top TOP_FUNCTION
 add_files firmware/BDT.h -cflags "-std=c++14"
-add_files firmware/myproject.cpp -cflags "-std=c++14"
+add_files firmware/{{ProjectName}}.cpp -cflags "-std=c++14"
 add_files firmware/utils.h -cflags "-std=c++14"
-add_files -tb myproject_test.cpp -cflags "-I firmware/ -std=c++14"
+add_files -tb {{ProjectName}}_test.cpp -cflags "-I firmware/ -std=c++14"
+{%- if weights %}
 add_files -tb firmware/weights
+{%- endif %}
 add_files -tb tb_data
 
 source build_pdr_ips/tree_idle.tcl
 source build_pdr_ips/vote_buffer.tcl
 source build_pdr_ips/enumerator.tcl
-##hls-fpga-machine-learning insert individual-ips
+{#- hls-fpga-machine-learning insert individual-ips #}
+{%- if cfg_get %}
+    {%- for ibank in range_bank_count%}
+source build_pdr_ips/bank_buffer_{{ibank}}.tcl
+    {%- endfor %}
+    {%- for tree_ip in tree_ips %}
+source build_pdr_ips/tree_cl{{tree_ip.iclass}}_{{tree_ip.itree}}.tcl
+    {%- endfor %}       
+    {%- for iclass in range_class_count %}
+source build_pdr_ips/voting_station_cl{{iclass}}.tcl
+    {%- endfor %}
+{%- endif %}
 
 if {$opt(fastsim)} {
     open_solution "tree_idle"
     csim_design
 }
 
-exit
+exit{{'\n'}}

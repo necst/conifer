@@ -14,14 +14,14 @@
 # limitations under the License.
 
 if {$opt(reset)} {
-    open_solution -reset "the_ip"
+    open_solution -reset "{{the_ip}}"
 } else {
-    open_solution "the_ip"
+    open_solution "{{the_ip}}"
 }
 
-set_part {xc7vx690tffg1927-2}
-create_clock -period 5 -name default
-set_directive_top -name TOP_FUNCTION "myproject__the_ip"
+set_part {{'{%s}'|format(XilinxPart)}}
+create_clock -period {{ClockPeriod}} -name default
+set_directive_top -name TOP_FUNCTION "{{projectname}}__{{the_ip}}"
 
 if {$opt(csim)} {
     csim_design
@@ -36,9 +36,9 @@ if {$opt(cosim)} {
 }
 
 if {$opt(export)} {
-    export_design -format ip_catalog -description "myproject__the_ip" -display_name "myproject__the_ip" -ipname "the_ip" -library "myproject"
+    export_design -format ip_catalog -description "{{projectname}}__{{the_ip}}" -display_name "{{projectname}}__{{the_ip}}" -ipname "{{the_ip}}" -library "{{projectname}}"
 }
 
 if {$opt(vsynth)} {
     puts "NOT IMPLEMENTED YET"
-}
+}{{'\n'}}

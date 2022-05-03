@@ -211,185 +211,94 @@ def write(ensemble_dict, cfg):
     #######################
     # build_prj.tcl
     #######################
-"""
-# 5
-###################################################################################################################################
-###################################################################################################################################
-################################# B U I L D _ P R J . T C L #######################################################################
-###################################################################################################################################
-###################################################################################################################################
-
-    template = env.get_template('build_prj.tcl')
 
     bdtdir = os.path.abspath(os.path.join(filedir, "../bdt_utils"))
     relpath = os.path.relpath(bdtdir, start=cfg['OutputDir'])
 
-
+    # build_prj.tcl
     if cfg.get('PDR', False) == False:
-        file = open(os.path.join(filedir, 'hls-template/build_prj.tcl'), 'r')
+        template = env.get_template('hls-template/build_prj.tcl.jinja')
     else:
-        file = open(os.path.join(filedir, 'hls-template/build_pdr_prj.tcl'), 'r')
-    fout = open('{}/build_prj.tcl'.format(cfg['OutputDir']), 'w')
+        template = env.get_template('hls-template/build_pdr_prj.tcl.jinja')
 
-    task='main'
+    template.stream(
+        ProjectName=cfg['ProjectName'],
+        XilinxPart=cfg['XilinxPart'],
+        ClockPeriod=cfg['ClockPeriod'],
+        weights=False,
+        tree_ips=tree_ips,
+        range_class_count=range(class_count),
+        cfg_get=cfg.get('PDR', False),
+        range_bank_count=range(1, bank_count + 1)
+    ).dump('{}/build_prj.tcl'.format(cfg['OutputDir']))
 
-    output = template.render(
-        task=task,
-        cfg=cfg,
-        cfg_get=False,
-        file=file,
-        ensemble_trees=enumerate(zip(first, second, third)),
-        projectname='Supercalifragilistiche',
-        bank_count=10,
-        enumerate_tree=enumerate(zip(first, second, third))
-    )
-
-    with fout as build_prj_tcl:
-        build_prj_tcl.write(output)
-
-    file.close()
-    fout.close()
-
+    # bank buffer
     if cfg.get('PDR', False) == True:
         os.mkdir('{}/build_pdr_ips'.format(cfg['OutputDir']))
         for ibank in range(1, bank_count + 1):
-            file = open(os.path.join(filedir, 'hls-template/build_pdr_ip.tcl'), 'r')
-            fout = open('{}/build_pdr_ips/bank_buffer_{}.tcl'.format(cfg['OutputDir'], ibank), 'w')
-
-            task='bank_buffer'
+            template = env.get_template('hls-template/build_pdr_ip.tcl.jinja')
             
-            output = template.render(
-                task=task,
-                cfg=cfg,
-                cfg_get=False,
-                file=file,
-                ensemble_trees=enumerate(zip(first, second, third)),
-                projectname='Supercalifragilistiche',
-                bank_count=10,
-                enumerate_tree=enumerate(zip(first, second, third))
-            )
+            template.stream(
+                projectname=cfg['ProjectName'],
+                XilinxPart=cfg['XilinxPart'],
+                ClockPeriod=cfg['ClockPeriod'],
+                the_ip='bank_buffer_{}'.format(ibank)
+            ).dump('{}/build_pdr_ips/bank_buffer_{}.tcl'.format(cfg['OutputDir'], ibank))
         
-            with fout as build_prj_tcl:
-                    build_prj_tcl.write(output)
-
-            file.close()
-            fout.close()
-        
+        # class
         for itree, trees in enumerate(ensemble_dict['trees']):
             for iclass, tree in enumerate(trees): 
-                file = open(os.path.join(filedir, 'hls-template/build_pdr_ip.tcl'), 'r')
-                fout = open('{}/build_pdr_ips/tree_cl{}_{}.tcl'.format(cfg['OutputDir'], iclass, itree), 'w')
+                template=env.get_template('hls-template/build_pdr_ip.tcl.jinja')
 
-                task='tree'
-
-                output = template.render(
-                    task=task,
-                    cfg=cfg,
-                    cfg_get=False,
-                    file=file,
-                    ensemble_trees=enumerate(zip(first, second, third)),
-                    projectname='Supercalifragilistiche',
-                    bank_count=10,
-                    enumerate_tree=enumerate(zip(first, second, third))
-                )
-
-                with fout as build_prj_tcl:
-                    build_prj_tcl.write(output)
-
-                file.close()
-                fout.close()
-
-        for iclass in range(class_count):
-            file = open(os.path.join(filedir, 'hls-template/build_pdr_ip.tcl'), 'r')
-            fout = open('{}/build_pdr_ips/voting_station_cl{}.tcl'.format(cfg['OutputDir'], iclass), 'w')
-
-            task='voting_station'
-
-            output = template.render(
-                task=task,
-                cfg=cfg,
-                cfg_get=False,
-                file=file,
-                ensemble_trees=enumerate(zip(first, second, third)),
-                projectname='Supercalifragilistiche',
-                bank_count=10,
-                enumerate_tree=enumerate(zip(first, second, third))
-            )
-
-            with fout as build_prj_tcl:
-                build_prj_tcl.write(output)
-
-            file.close()
-            fout.close()
-
-        file = open(os.path.join(filedir, 'hls-template/build_pdr_ip.tcl'), 'r')
-        fout = open('{}/build_pdr_ips/tree_idle.tcl'.format(cfg['OutputDir']), 'w')
-
-        task='tree_idle'
-
-        output = template.render(
-            task=task,
-            cfg=cfg,
-            cfg_get=False,
-            file=file,
-            ensemble_trees=enumerate(zip(first, second, third)),
-            projectname='Supercalifragilistiche',
-            bank_count=10,
-            enumerate_tree=enumerate(zip(first, second, third))
-        )
-
-        with fout as build_prj_tcl:
-            build_prj_tcl.write(output)
+                template.stream(
+                    projectname=cfg['ProjectName'],
+                    XilinxPart=cfg['XilinxPart'],
+                    ClockPeriod=cfg['ClockPeriod'],
+                    the_ip='tree_cl{}_{}'.format(iclass, itree)
+                ).dump('{}/build_pdr_ips/tree_cl{}_{}.tcl'.format(cfg['OutputDir'], iclass, itree))
         
-        file.close()
-        fout.close()
+        # voting station
+        for iclass in range(class_count):
+            template=env.get_template('hls-template/build_pdr_ip.tcl.jinja')
 
-        file = open(os.path.join(filedir, 'hls-template/build_pdr_ip.tcl'), 'r')
-        fout = open('{}/build_pdr_ips/vote_buffer.tcl'.format(cfg['OutputDir']), 'w')
+            template.stream(
+                    projectname=cfg['ProjectName'],
+                    XilinxPart=cfg['XilinxPart'],
+                    ClockPeriod=cfg['ClockPeriod'],
+                    the_ip='voting_station_cl{}'.format(iclass)
+            ).dump('{}/build_pdr_ips/voting_station_cl{}.tcl'.format(cfg['OutputDir'], iclass))
 
-        task='vote_buffer'
+        template=env.get_template('hls-template/build_pdr_ip.tcl.jinja')
 
-        output = template.render(
-            task=task,
-            cfg=cfg,
-            cfg_get=False,
-            file=file,
-            ensemble_trees=enumerate(zip(first, second, third)),
-            projectname='Supercalifragilistiche',
-            bank_count=10,
-            enumerate_tree=enumerate(zip(first, second, third))
-        )
+        template.stream(
+                projectname=cfg['ProjectName'],
+                XilinxPart=cfg['XilinxPart'],
+                ClockPeriod=cfg['ClockPeriod'],
+                the_ip='tree_idle'
+        ).dump('{}/build_pdr_ips/tree_idle.tcl'.format(cfg['OutputDir']))
 
-        with fout as build_prj_tcl:
-            build_prj_tcl.write(output)
-        file.close()
-        fout.close()
+        template=env.get_template('hls-template/build_pdr_ip.tcl.jinja')
 
-        file = open(os.path.join(filedir, 'hls-template/build_pdr_ip.tcl'), 'r')
-        fout = open('{}/build_pdr_ips/enumerator.tcl'.format(cfg['OutputDir']), 'w')
+        template.stream(
+                projectname=cfg['ProjectName'],
+                XilinxPart=cfg['XilinxPart'],
+                ClockPeriod=cfg['ClockPeriod'],
+                the_ip='vote_buffer'
+        ).dump('{}/build_pdr_ips/vote_buffer.tcl'.format(cfg['OutputDir']))
 
-        task='enumerator'
-    
-        output = template.render(
-            task=task,
-            cfg=cfg,
-            cfg_get=False,
-            file=file,
-            ensemble_trees=enumerate(zip(first, second, third)),
-            projectname='Supercalifragilistiche',
-            bank_count=10,
-            enumerate_tree=enumerate(zip(first, second, third))
-        )
-    
-        with fout as build_prj_tcl:
-            build_prj_tcl.write(output)
-        file.close()
-        fout.close()
+        template=env.get_template('hls-template/build_pdr_ip.tcl.jinja')
 
+        template.stream(
+                projectname=cfg['ProjectName'],
+                XilinxPart=cfg['XilinxPart'],
+                ClockPeriod=cfg['ClockPeriod'],
+                the_ip='enumerator'
+        ).dump('{}/build_pdr_ips/enumerator.tcl'.format(cfg['OutputDir']))
 
     #######################
     # build_tree_wrapper.tcl
     #######################
+"""
 # 6
 ###################################################################################################################################
 ###################################################################################################################################
