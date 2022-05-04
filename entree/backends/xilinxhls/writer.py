@@ -30,8 +30,7 @@ _TOOLS = {
     'vitishls': 'vitis_hls'
 }
 
-# Templates directory:
-env = Environment(loader=FileSystemLoader('entree/backends/xilinxhls'))
+
 
 def get_tool_exe_in_path(tool):
     if tool not in _TOOLS.keys():
@@ -99,7 +98,9 @@ def write(ensemble_dict, cfg):
                     '{}/{}_reconfigurable_system/scripts/tcl/{}'.format(cfg['OutputDir'], cfg['ProjectName'], entry.name)
                 )
 
-
+    # Templates directory:
+    env = Environment(loader=FileSystemLoader(filedir))
+    
     ###################
     # myproject.cpp
     ###################
