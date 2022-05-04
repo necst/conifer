@@ -345,7 +345,7 @@ def write(ensemble_dict, cfg):
     #######################
 
     if cfg.get('PDR', False) == True:
-        
+
         template = env.get_template('system-template/tree_wrapper.tcl.jinja')
 
         template.stream(
@@ -357,30 +357,20 @@ def write(ensemble_dict, cfg):
     #######################
     # synth_static_shell.tcl
     #######################
-"""
-# 9
-###################################################################################################################################
-###################################################################################################################################
-################################# S Y N T H _ S T A T I C _ S H E L L . T C L #####################################################
-###################################################################################################################################
-###################################################################################################################################
-
 
     if cfg.get('PDR', False) == True:
         
-        template = env.get_template('synth_static_shell.tcl')
+        template = env.get_template('system-template/static_shell.tcl.jinja')
         
-        output = template.render(
-            projectname=cfg['ProjectName'],
-            file = open(os.path.join(filedir, 'system-template/static_shell.tcl'), 'r')
-        )
-        with open('{}/synth_static_shell.tcl'.format(cfg['OutputDir']), 'w') as synth_static_shell:
-            synth_static_shell.write(output)
+        template.stream(
+                projectname=cfg['ProjectName']
+        ).dump('{}/synth_static_shell.tcl'.format(cfg['OutputDir']))
         
 
     #######################
     # design.tcl
     #######################
+"""
 # 10
 ###################################################################################################################################
 ###################################################################################################################################
