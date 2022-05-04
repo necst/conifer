@@ -370,138 +370,37 @@ def write(ensemble_dict, cfg):
     #######################
     # design.tcl
     #######################
-"""
-# 10
-###################################################################################################################################
-###################################################################################################################################
-###################################### D E S I G N . T C L ########################################################################
-###################################################################################################################################
-###################################################################################################################################
-
-
     if cfg.get('PDR', False) == True:
-        f = open(os.path.join(filedir, 'system-template/reconfigurable_system/scripts/design.tcl'), 'r')
-        fout = open('{}/{}_reconfigurable_system/scripts/design.tcl'.format(cfg['OutputDir'], cfg['ProjectName']) , 'w')
-
+        
+        template = env.get_template('system-template/reconfigurable_system/scripts/design.tcl.jinja')
+        
         trees_per_bank = int(cfg['TreesPerBank'])
         rp_variants = math.ceil(tree_count / (trees_per_bank * bank_count))
 
-        for line in f.readlines():
-            
-            if '## hls-fpga-machine-learning insert project-part' in line:
-                line = line.replace('## hls-fpga-machine-learning insert project-part', cfg['XilinxPart'])
-            elif '## hls-fpga-machine-learning insert rp-module-definition' in line:
-                line = ''
+        tree_ips_bank=[]
+        for ibank in range(bank_count):
+            for itree in range(trees_per_bank):
+                    tree_ips_bank.append({"ibank":ibank,"itree": itree})
+        
+        tree_ips_config=[]
+        for iconfig in range(rp_variants):
+                    tree_ips_config.append({"iconfig":iconfig,"tree_ips":tree_ips_bank})
 
-                curr_bank = 0
-                curr_tree_in_bank = 0
-                curr_variant = 0
-
-                for itree, trees in enumerate(ensemble_dict['trees']):
-                    for iclass, tree in enumerate(trees):
-                        if (curr_variant == 0):
-                            line += 'set module_{bank}_{tree} "top_system_tree_{bank}_{tree}_0_tree_wrapper_tree_bb_0"\n'.format(
-                                bank = curr_bank,
-                                tree = curr_tree_in_bank
-                            )
-
-                        line += 'set module_{bank}_{tree}_variant{variant} "tree_cl{the_class}_{tree_in_class}"\n'.format(
-                            bank = curr_bank,
-                            tree = curr_tree_in_bank,
-                            variant = curr_variant,
-                            the_class = iclass,
-                            tree_in_class = itree
-                        )
-                        line += 'set variant $module_{bank}_{tree}_variant{variant}\n'.format(
-                            bank = curr_bank,
-                            tree = curr_tree_in_bank,
-                            variant = curr_variant
-                        )
-                        line += 'add_module $variant\n'
-                        line += 'set_attribute module $variant moduleName   $module_{bank}_{tree}\n'.format(
-                            bank = curr_bank,
-                            tree = curr_tree_in_bank
-                        )
-                        line += 'set_attribute module $variant prj          $prjDir/$variant.prj\n'
-                        line += 'set_attribute module $variant xdc          $ipDir/$variant/constraints/TOP_FUNCTION_ooc.xdc\n'
-                        line += 'set_attribute module $variant synth        ${run.rmSynth}\n'
-                        line += '\n'
-
-                        curr_variant += 1
-
-                        if (curr_variant >= rp_variants):
-                            curr_variant = 0
-                            curr_tree_in_bank += 1
-                            if (curr_tree_in_bank >= trees_per_bank):
-                                curr_tree_in_bank = 0
-                                curr_bank += 1
-                
-                line += '\n'
-                line += '\n'
-
-                for ibank in range(bank_count):
-                    for itree in range(trees_per_bank):
-                        line += 'set module_{bank}_{tree}_inst "top_system_i/tree_{bank}_{tree}/inst/tree_bb"\n'.format(
-                            bank = ibank,
-                            tree = itree
-                        )
-                
-                line += '\n'
-                line += '\n'
-
-            elif '## hls-fpga-machine-learning insert rp-configuration' in line:
-                line = ''
-
-                for i_config in range(rp_variants):
-                    line += 'set config "Config_{}" \n'.format(i_config);
-                    line += '\n';
-                    line += 'add_implementation $config\n';
-                    line += 'set_attribute impl $config top             $top\n';
-                    line += 'set_attribute impl $config pr.impl         1\n';
-                    line += 'set_attribute impl $config implXDC         [list $xdcDir/top_system_pblock.xdc \\\n';
-                    line += '                                        ]\n';
-                    line += 'set_attribute impl $config impl            ${run.prImpl} \n';
-                    line += 'set_attribute impl $config partitions      [list [list $static           $top           {}] \\\n'.format(
-                        'implement' if i_config == 0 else 'import'
-                    );
-                    for i_bank in range(bank_count):
-                        for i_tree in range(trees_per_bank):
-                            line += '                                                [list [ if {{ [info exists module_{bank}_{tree}_variant{variant}] == 1 }} {{set module_{bank}_{tree}_variant{variant}}} {{set module_0_0_variant0}} ] $module_{bank}_{tree}_inst [ if {{ [info exists module_{bank}_{tree}_variant{variant}] == 1 }} {{expr {{{{implement}}}}}} {{expr {{{{greybox}}}}}} ]] \\\n'.format(
-                                bank = i_bank,
-                                tree = i_tree,
-                                variant = i_config
-                            );
-                    line += '                                        ]\n';
-                    line += 'set_attribute impl $config verify          ${run.prVerify} \n';
-                    line += 'set_attribute impl $config bitstream       ${run.writeBitstream} \n';
-                    line += 'set_attribute impl $config cfgmem.pcap     1\n';
-                    line += '\n';
-                line += '\n';
-            elif '## hls-fpga-machine-learning insert rp-flat-configuration' in line:
-                line = ''
-
-                line += 'add_implementation Flat\n'
-                line += 'set_attribute impl Flat top          $top\n'
-                line += 'set_attribute impl Flat implXDC      [list $xdcDir/top_system_pblock.xdc \\\n'
-                line += '                                    ]\n'
-                line += 'set_attribute impl Flat partitions   [list [list $static           $top           implement] \\\n'
-                for i_bank in range(bank_count):
-                    for i_tree in range(trees_per_bank):
-                        line += '                                                [list $module_0_0_variant0 $module_{bank}_{tree}_inst greybox] \\\n'.format(
-                            bank = i_bank,
-                            tree = i_tree,
-                            variant = 0
-                        );
-                line += '                                    ]\n'
-                line += 'set_attribute impl Flat impl         ${run.flatImpl}\n'
-
-            fout.write(line)
-        f.close()
-        fout.close()
+        template.stream(
+                projectname=cfg['ProjectName'],
+                XilinxPart=cfg['XilinxPart'],
+                XilinxBoard=cfg['XilinxBoard'],
+                trees_per_bank=trees_per_bank,
+                tree_ips=tree_ips,
+                tree_ips_bank=tree_ips_bank,
+                tree_ips_config=tree_ips_config,
+                rp_variants=rp_variants 
+        ).dump('{}/{}_reconfigurable_system/scripts/design.tcl'.format(cfg['OutputDir'], cfg['ProjectName']) )
 
     #######################
     # top_system_pblock.tcl
     #######################
+"""
 # 11
 ###################################################################################################################################
 ###################################################################################################################################

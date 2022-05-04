@@ -1,105 +1,157 @@
-{# D A   T E S T A R E #}
-     if cfg.get('PDR', False) == True:
-        file = open(os.path.join(filedir, 'system-template/reconfigurable_system/scripts/design.tcl'), 'r')
-        fout = open('{}/{}_reconfigurable_system/scripts/design.tcl'.format(cfg['OutputDir'], cfg['ProjectName']) , 'w')
+# This source file comes from the Xilinx(r) Application Node 1231
+# (https://xilinx-wiki.atlassian.net/wiki/spaces/A/pages/18841851/XAPP1231+-+Partial+Reconfiguration+of+a+Hardware+Accelerator+with+Vivado+Design+Suite)
 
-        trees_per_bank = int(cfg['TreesPerBank'])
-        rp_variants = math.ceil(tree_count / (trees_per_bank * bank_count))
-#############################################################################################################################################
-        {%- for line in file %}
-            
-            {%- if '## hls-fpga-machine-learning insert project-part' in line %}
-                {%- set line = line.replace('## hls-fpga-machine-learning insert project-part', cfg['XilinxPart']) %}
-            {%- elif '## hls-fpga-machine-learning insert rp-module-definition' in line %}
-                {%- set line = '' %}
+###############################################################
+###   Tcl Variables
+###############################################################
+####Define location for "Tcl" directory. Defaults to "./Tcl"
+set tclHome "./scripts/tcl"
+if {[file exists $tclHome]} {
+   set tclDir $tclHome
+} elseif {[file exists "./tcl"]} {
+   set tclDir  "./tcl"
+} else {
+   error "ERROR: No valid location found for required Tcl scripts. Set \$tclDir in design.tcl to a valid location."
+}
+puts "Setting TCL dir to $tclDir"
 
-                {%- set curr_bank = 0 %}
-                {%- set curr_tree_in_bank = 0 %}
-                {%- set curr_variant = 0 %}
+####Source required Tcl Procs
+source $tclDir/design_utils.tcl
+source $tclDir/log_utils.tcl
+source $tclDir/synth_utils.tcl
+source $tclDir/impl_utils.tcl
+source $tclDir/hd_floorplan_utils.tcl
 
-                {%- for itree, trees in enumerate(ensemble_dict['trees']) %}
-                    {%- for iclass, tree in enumerate(trees) %}
-                        {%- if (curr_variant == 0) %}
-                            {%- set line = '%s set module_{bank}_{tree} "top_system_tree_{bank}_{tree}_0_tree_wrapper_tree_bb_0"\n'|format(line,bank = curr_bank,tree = curr_tree_in_bank)
-                        {%- endif %}
-                        {%-- set line %}
-                         {{line}} set module_{{curr_bank}}_{{curr_tree_in_bank}}_variant{{curr_variant}} "tree_cl{{iclass}}_{{tree_in_class}}" 
-                         set variant $module_{{curr_bank}}_{{curr_tree_in_bank}}_variant{{curr_variant}} 
-                         add_module $variant
-                         set_attribute module $variant moduleName   $module_{curr_{bank}}_{{curr_tree_in_bank}}
-                         set_attribute module $variant prj          $prjDir/$variant.prj
-                         set_attribute module $variant xdc          $ipDir/$variant/contraints/TOP_FUNCTION_ooc.xdc
-                         set_attribute module $variant synth        ${{run.rmSynth}}
-                         
-                        {%-- endset %}
-                        {%- set curr_variant = curr_variant + 1 %}
+###############################################################
+### Define Part, Package, Speedgrade 
+###############################################################
+set part {{XilinxPart}}
+check_part $part
 
-                        {%- if (curr_variant >= rp_variants) %}
-                            {%- set curr_variant = 0 %}
-                            {%- set curr_tree_in_bank = curr_tree_in_bank + 1 %}
-                            {%- if (curr_tree_in_bank >= trees_per_bank) %}
-                                {%- curr_tree_in_bank = 0 %}
-                                {%- curr_bank = curr_bank + 1 %}
-                            {%- endif %}
-                        {%- endif %}
-                    {%- endfor %}
-                {%- endfor %}
-                {%- set line = '%s \n' |format(line) %}
-                {%- set line = '%s \n' |format(line) %}
+###############################################################
+###  Setup Variables
+###############################################################
+#set tclParams [list <param1> <value> <param2> <value> ... <paramN> <value>]
+set tclParams [list hd.visual 1 \
+              ]
 
-                {%- for ibank in range(bank_count) %}
-                    {%- for itree in range(trees_per_bank) %}
-                        {%- set line = '%s set module_%d_%d_inst "top_system_i/tree_%d_%d/inst/tree_bb"\n'|format(line,ibank,itree,ibank,itree) %}
-                    {%- endfor %}
-                {%- endfor %}
-                
-                {%- set line = '%s \n' |format(line) %}
-                {%- set line = '%s \n'|format(line) %}
+####flow control
+set run.rmSynth        1
+set run.prImpl         1
+set run.prVerify       1
+set run.writeBitstream 1
+set run.flatImpl       0
 
-            {%- elif '## hls-fpga-machine-learning insert rp-configuration' in line %}
-                {%- set line = '' %}
+####Report and DCP controls - values: 0-required min; 1-few extra; 2-all
+set verbose      1
+set dcpLevel     1
 
-                {%- for i_config in range(rp_variants) %}
-                    {%- set line = '%s set config "Config_%d" \n'|format(line,i_config); %}
-                    {%- set line = '%s \n';|format(line) %}
-                    {%- set line = '%s add_implementation $config\n';
-                    {%- set line = '%s set_attribute impl $config top             $top\n';|format(line) %}
-                    {%- set line = '%s set_attribute impl $config pr.impl         1\n';|format(line) %}
-                    {%- set line = '%s set_attribute impl $config implXDC         [list $xdcDir/top_system_pblock.xdc \\\n';|format(line) %}
-                    {%- set line = '%s                                         ]\n';|format(line) %}
-                    {%- set line = '%s set_attribute impl $config impl            ${run.prImpl} \n';|format(line) %}
-                    {% if implement == 0%}
-                    {%- set line = '%s set_attribute impl $config partitions      [list [list $static           $top           {}] \\\n'|format(line,implement %}
-                    {% else %}
-                    {%- set line = '%s set_attribute impl $config partitions      [list [list $static           $top           {}] \\\n'|format(line,import%}
-                    {% endif %}
-                    {% for i_bank in range(bank_count) %}
-                        for i_tree in range(trees_per_bank):
-                            {%- set line %}
-                            {{line}}                                                 [list [ if {{ [info exists module_{{i_bank}}_{{i_tree}}_variant{{i_config}}] == 1 }} {{set module_{{i_bank}}_{{i_tree}}_variant{{i_config}}}} {{set module_0_0_variant0}} ] $module_{{i_bank}}_{{i_tree}}_inst [ if {{ [info exists module_{{i_bank}}_{{i_tree}}_variant{{i_config}}] == 1 }} {{expr {{{{implement}}}}}} {{expr {{{{greybox}}}}}} ]] \\\n'
-                            {% endset %}    
-                    {% endfor %}
-                    {%- set line = '%s                                         ]\n';|format(line) %}
-                    {%- set line = '%s set_attribute impl $config verify          ${run.prVerify} \n';|format(line) %}
-                    {%- set line = '%s set_attribute impl $config bitstream       ${run.writeBitstream} \n';|format(line) %}
-                    {%- set line = '%s set_attribute impl $config cfgmem.pcap     1\n';|format(line) %}
-                    {%- set line = '%s \n';
-                {%- endofor %}
-                {%- set line = '%s \n';
-            {%- elif '## hls-fpga-machine-learning insert rp-flat-configuration' in line %}
-                {% set line = '' %}
-                {%- set line = '%s add_implementation Flat\n'|format(line) %}
-                {%- set line = '%s set_attribute impl Flat top          $top\n'|format(line) %}
-                {%- set line = '%s set_attribute impl Flat implXDC      [list $xdcDir/top_system_pblock.xdc \\\n'|format(line) %}
-                {%- set line = '%s                                     ]\n'|format(line) %}
-                {%- set line = '%s set_attribute impl Flat partitions   [list [list $static           $top           implement] \\\n'|format(line) %}
-                {% for i_bank in range(bank_count) %}
-                    {% for i_tree in range(trees_per_bank) %}
-                        {%- set line = '%s                                                 [list $module_0_0_00 $module_%d_%d_inst greybox] \\\n'|format(line,i_bank,i_tree) %}
-                    {%endfor%}
-                {%endfor%}
-                {%- set line = '%s                                     ]\n'|format(line) %}
-                {%- set line = '%s set_attribute impl Flat impl         ${run.flatImpl}\n'|format(line) %}
-            {%- endif %}
-            {{line}}
-        {%- endfor %}
+####Output Directories
+set synthDir  "./Synth"
+set implDir   "./Implement"
+set dcpDir    "./Checkpoint"
+set bitDir    "./Bitstreams"
+
+####Input Directories
+set srcDir     "./srcs"
+set xdcDir     "./constrs"
+set rtlDir     "$srcDir/hdl"
+set ipDir      "$srcDir/ip"
+set prjDir     "$srcDir/prj"
+
+###############################################################
+### Top Definition
+###############################################################
+set top "top_system_wrapper"
+set static "static"
+add_module $static
+set_attribute module $static moduleName      $top
+set_attribute module $static top_level       1
+set_attribute module $static synthCheckpoint $srcDir/dcp/static_shell.dcp
+
+####################################################################
+### RP Module Definitions
+####################################################################
+{{''}}
+{%- set ns=namespace() %}
+{%- set ns.curr_bank = 0 %}
+{%- set ns.curr_tree_in_bank = 0 %}
+{%- set ns.curr_variant = 0 %}
+{%- for tree_ip in tree_ips %}
+   {%- if (ns.curr_variant == 0) %}
+set module_{{ns.curr_bank}}_{{ns.curr_tree_in_bank}} "top_system_tree_{{ns.curr_bank}}_{{ns.curr_tree_in_bank}}_0_tree_wrapper_tree_bb_0"
+   {%- endif %}
+set module_{{ns.curr_bank}}_{{ns.curr_tree_in_bank}}_variant{{ns.curr_variant}} "tree_cl{{tree_ip.iclass}}_{{tree_ip.itree}}" 
+set variant $module_{{ns.curr_bank}}_{{ns.curr_tree_in_bank}}_variant{{ns.curr_variant}} 
+add_module $variant
+set_attribute module $variant moduleName   $module_{{ns.curr_bank}}_{{ns.curr_tree_in_bank}}
+set_attribute module $variant prj          $prjDir/$variant.prj
+set_attribute module $variant xdc          $ipDir/$variant/constraints/TOP_FUNCTION_ooc.xdc
+set_attribute module $variant synth        ${run.rmSynth}{{'\n'}}
+{%- set ns.curr_variant = ns.curr_variant + 1 %}
+   {%- if (ns.curr_variant >= rp_variants) %}
+       {%- set ns.curr_variant = 0 %}
+       {%- set ns.curr_tree_in_bank = ns.curr_tree_in_bank + 1 %}
+       {%- if (ns.curr_tree_in_bank >= trees_per_bank) %}
+           {%- set  ns.curr_tree_in_bank = 0 %}
+           {%- set ns.curr_bank = ns.curr_bank + 1 %}
+       {%- endif %}
+   {%- endif %}
+{%- endfor %}
+{{'\n'}}
+{%- for tree_ip_bank in tree_ips_bank %}
+set module_{{tree_ip_bank.ibank}}_{{tree_ip_bank.itree}}_inst "top_system_i/tree_{{tree_ip_bank.ibank}}_{{tree_ip_bank.itree}}/inst/tree_bb"
+{%- endfor %}
+
+
+
+########################################################################
+### Configurations (Implementation) Definition
+########################################################################
+
+{%- for tree_ip_config in tree_ips_config %}
+
+set config "Config_{{tree_ip_config.iconfig}}" {{'\n'}}
+add_implementation $config
+set_attribute impl $config top             $top
+set_attribute impl $config pr.impl         1
+set_attribute impl $config implXDC         [list $xdcDir/top_system_pblock.xdc {{'\\'}}
+                                        ]
+set_attribute impl $config impl            ${run.prImpl} 
+   {%- if tree_ip_config.iconfig == 0%}
+set_attribute impl $config partitions      [list [list $static           $top           implement] {{'\\'}}
+   {%- else %}
+set_attribute impl $config partitions      [list [list $static           $top           import] {{'\\'}}
+   {%- endif %}
+{%- for tree_ip in tree_ip_config.tree_ips %}
+{{'                                                [list [ if { [info exists module_%d_%d_variant%d] == 1 } {set module_%d_%d_variant%d} {set module_0_0_variant0} ] $module_%d_%d_inst [ if { [info exists module_%d_%d_variant%d] == 1 } {expr {{implement}}} {expr {{greybox}}} ]] \\'|format(tree_ip.ibank,tree_ip.itree,tree_ip_config.iconfig,tree_ip.ibank,tree_ip.itree,tree_ip_config.iconfig,tree_ip.ibank,tree_ip.itree,tree_ip.ibank,tree_ip.itree,tree_ip_config.iconfig)}} 
+{%- endfor %}
+                                         ]
+ set_attribute impl $config verify          ${run.prVerify} 
+ set_attribute impl $config bitstream       ${run.writeBitstream} 
+ set_attribute impl $config cfgmem.pcap     1
+{%- endfor %}
+
+
+
+####################################################################
+### Create Flat implementation run 
+####################################################################
+
+add_implementation Flat
+set_attribute impl Flat top          $top
+set_attribute impl Flat implXDC      [list $xdcDir/top_system_pblock.xdc {{'\\'}}
+                                    ]
+set_attribute impl Flat partitions   [list [list $static           $top           implement] {{'\\'}}
+{%- for tree_ip in tree_ips_bank %}
+                                                 [list $module_0_0_variant0 $module_{{tree_ip.ibank}}_{{tree_ip.itree}}_inst greybox] {{'\\'}}
+{%- endfor %}
+                                    ]
+set_attribute impl Flat impl         ${run.flatImpl}
+
+########################################################################
+### Task / flow portion
+########################################################################
+source $tclDir/run.tcl
+
+exit
