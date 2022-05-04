@@ -2,7 +2,7 @@
 #include "parameters.h"
 {{ "#include \"%s.h\" "|format(projectname) }}
 {%- if not cfg_get %}
-// Monolithic IP
+{#- Monolithic IP #}
 {{ "void %s(input_t *x, score_t *score/*, score_t tree_scores[BDT::fn_classes(n_classes) * n_trees]*/){"|format(projectname) }}
     #pragma HLS INTERFACE s_axilite port=return
     #pragma HLS INTERFACE m_axi depth=n_features bundle=x port=x
@@ -32,10 +32,10 @@
 }
         
 {%- else %}
-// Reconfigurable set of IPs
+{#- Reconfigurable set of IPs #}
 
 
-// ENUMERATOR
+{#- ENUMERATOR #}
 {{"void %s__enumerator(hls::stream<idless_input_arr_s_t> &input_stream, hls::stream<input_arr_s_t> &output_stream){"|format(projectname) }}
     #pragma HLS INTERFACE axis register port=input_stream
     #pragma HLS INTERFACE axis register port=output_stream
@@ -44,7 +44,7 @@
     en.top_function(input_stream, output_stream);}
 
 
-// BANK BUFFER IP
+{#- BANK BUFFER IP #}
     {%- for ibank in range_bank_count %}
 {{"void %s__bank_buffer_%d(hls::stream<input_arr_s_t> &input_stream, hls::stream<input_arr_s_t> &output_stream, hls::stream<bank_command_s_t> &command_stream){"| format(projectname, ibank) }}
     #pragma HLS INTERFACE axis register port=input_stream
@@ -56,7 +56,7 @@
     {{ "\n" }}
     {%- endfor %}
 
-// TREE IPs
+{#- TREE IPs #}
     {%- for tree_ip in tree_ips %}
 {{ "void %s__tree_cl%d_%d(hls::stream<input_arr_s_t> &input_stream, hls::stream<tree_score_s_t> &output_stream){"|format(projectname, tree_ip.iclass, tree_ip.itree) }}
     #pragma HLS INTERFACE axis register port=input_stream
@@ -75,7 +75,7 @@
     {{"\n"}}
     {%- endfor %}      
 
-// IDLE TREE IP
+{#- IDLE TREE IP #}
 {{"void %s__tree_idle(hls::stream<input_arr_s_t> &input_stream, hls::stream<tree_score_s_t> &output_stream){"|format(projectname) }}
     #pragma HLS INTERFACE axis register port=input_stream
     #pragma HLS INTERFACE axis register port=output_stream
@@ -91,7 +91,7 @@
     output_stream << output;}
 
 
-// VOTE BUFFER IP
+{#- VOTE BUFFER IP #}
 {{ "void %s__vote_buffer(hls::stream<tree_score_s_t> &input_stream, hls::stream<tree_score_s_t> &output_stream, bool &irq){"|format(projectname) }}
     #pragma HLS INTERFACE axis register port=input_stream
     #pragma HLS INTERFACE axis register port=output_stream
@@ -101,7 +101,7 @@
     vb.top_function(input_stream, output_stream, irq);}
 
 
-// VOTING STATION IPs
+{#- VOTING STATION IPs #}
     {%- for iclass in range(class_count) %}
 {{" void %s__voting_station_cl%d(hls::stream<tree_score_s_t>  &input_score_stream, hls::stream<class_score_s_t> &output_score_stream){"|format(projectname, iclass) }}
     #pragma HLS INTERFACE axis register port=input_score_stream
