@@ -343,42 +343,21 @@ def write(ensemble_dict, cfg):
     #######################
     # build_tree_wrapper.tcl
     #######################
-"""
-# 8
-###################################################################################################################################
-###################################################################################################################################
-################################# B U I L D _ T R E E _ W R A P P E R . T C L #####################################################
-###################################################################################################################################
-###################################################################################################################################
-
 
     if cfg.get('PDR', False) == True:
-        f = open(os.path.join(filedir, 'system-template/tree_wrapper.tcl'), 'r')
-        fout = open('{}/build_tree_wrapper.tcl'.format(cfg['OutputDir']), 'w')
-        for line in f.readlines():
+        
+        template = env.get_template('system-template/tree_wrapper.tcl.jinja')
 
-            precision = int(cfg['Precision'].split('<')[1].split(',')[0])
-            
-            if '## hls-fpga-machine-learning insert project-name' in line:
-                line = line.replace('## hls-fpga-machine-learning insert project-name', '{}_system'.format(cfg['ProjectName']))
-            elif '## hls-fpga-machine-learning insert project-part' in line:
-                line = line.replace('## hls-fpga-machine-learning insert project-part', cfg['XilinxPart'])
-            elif '## hls-fpga-machine-learning insert project-board' in line:
-                line = line.replace('## hls-fpga-machine-learning insert project-board', cfg['XilinxBoard'])
-            if '##project_name##' in line:
-                line = line.replace('##project_name##', cfg['ProjectName'])
-            # TODO: Manage clock
-            #elif 'create_clock -period 5 -name default' in line:
-            #    line = 'create_clock -period {} -name default\n'.format(
-            #        cfg['ClockPeriod'])
-
-            fout.write(line)
-        f.close()
-        fout.close()
+        template.stream(
+                projectname=cfg['ProjectName'],
+                XilinxPart=cfg['XilinxPart'],
+                XilinxBoard=cfg['XilinxBoard']
+        ).dump('{}/build_tree_wrapper.tcl'.format(cfg['OutputDir']))
 
     #######################
     # synth_static_shell.tcl
     #######################
+"""
 # 9
 ###################################################################################################################################
 ###################################################################################################################################
