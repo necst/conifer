@@ -298,33 +298,23 @@ def write(ensemble_dict, cfg):
     #######################
     # build_tree_wrapper.tcl
     #######################
-"""
-# 6
-###################################################################################################################################
-###################################################################################################################################
-################################# B U I L D _ T R E E _ W R A P P E R . T C L #####################################################
-###################################################################################################################################
-###################################################################################################################################
-
 
     if cfg.get('PDR', False) == True:
 
-        template = env.get_template('build_tree_wrapper.tcl')
+        template = env.get_template('system-template/tree_wrapper.tcl.jinja')
 
-
-        output = template.render(
-            cfg=cfg,
-            file =open(os.path.join(filedir, 'system-template/tree_wrapper.tcl'), 'r'),
-        )
-
-        with open('{}/build_tree_wrapper.tcl'.format(cfg['OutputDir']), 'w') as build_tree_wrapper_tcl:
-            build_tree_wrapper_tcl.write(output)
+        template.stream(
+                projectname=cfg['ProjectName'],
+                XilinxPart=cfg['XilinxPart'],
+                XilinxBoard=cfg['XilinxBoard']
+        ).dump('{}/build_tree_wrapper.tcl'.format(cfg['OutputDir']))
         
 
 
     #######################
     # build_system_bd.tcl
     #######################
+"""
 # 7
 ###################################################################################################################################
 ###################################################################################################################################
