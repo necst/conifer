@@ -1,7 +1,7 @@
 ################################################################
 # COMMAND-LINE ARGUMENTS
 ################################################################
-
+# TODO: update to jinja 
 set prj_root  [lindex $argv 0]
 set prj_dir [lindex $argv 1]
 set ip_dir [lindex $argv 2]
@@ -27,6 +27,7 @@ launch_runs top_system_* -jobs ${n_jobs}
 
 
 # DFX wizard: set configurations and configuration runs
+# TODO: use jinja in order to generate configurations for every conmbination of n_bank n_trees_per_bank n_classes n_trees_per_class
 create_pr_configuration -name config_1 -partitions [list top_system_i/tree_rp_0_0:tree_rm_0_0_inst_0 top_system_i/tree_rp_0_1:tree_rm_0_1_inst_0 top_system_i/tree_rp_0_2:tree_rm_0_2_inst_0 top_system_i/tree_rp_1_0:tree_rm_0_3_inst_0 top_system_i/tree_rp_1_1:tree_rm_0_4_inst_0 top_system_i/tree_rp_1_2:tree_rm_0_5_inst_0 ]
 create_pr_configuration -name config_2 -partitions [list top_system_i/tree_rp_0_0:tree_rm_1_0_inst_0 top_system_i/tree_rp_0_1:tree_rm_1_1_inst_0 top_system_i/tree_rp_0_2:tree_rm_1_2_inst_0 top_system_i/tree_rp_1_0:tree_rm_1_3_inst_0 top_system_i/tree_rp_1_1:tree_rm_1_4_inst_0 top_system_i/tree_rp_1_2:tree_rm_1_5_inst_0 ]
 create_pr_configuration -name config_3 -partitions [list top_system_i/tree_rp_0_0:tree_rm_2_0_inst_0 top_system_i/tree_rp_0_1:tree_rm_2_1_inst_0 top_system_i/tree_rp_0_2:tree_rm_2_2_inst_0 top_system_i/tree_rp_1_0:tree_rm_2_3_inst_0 top_system_i/tree_rp_1_1:tree_rm_2_4_inst_0 top_system_i/tree_rp_1_2:tree_rm_2_5_inst_0 ]
@@ -38,6 +39,9 @@ create_run child_1_impl_1 -parent_run impl_1 -flow {Vivado Implementation 2021} 
 launch_runs synth_1 -jobs 12
 wait_on_run synth_1
 
+
+
+# TODO: try to find out how to use cnstraint files instead of tcl commands to do floorplanning
 open_run synth_1 -name synth_1 -pr_config [current_pr_configuration]
 
 startgroup
