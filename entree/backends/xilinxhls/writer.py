@@ -140,7 +140,9 @@ def write(ensemble_dict, cfg):
             for ifield, field in enumerate(tree_fields):
                 map_tree=','.join(map(str, tree[field]))
                 tree_ips_fields.append({"itree": itree, "trees": trees, "iclass": iclass, "tree": tree,"ifield": ifield, "field": field,"map_tree": map_tree})
-
+    
+    max_parallel_samples=6
+    
     template.stream(
         cfg_get_PDR=cfg.get('PDR', False),
         Precision=cfg['Precision'],
@@ -158,7 +160,7 @@ def write(ensemble_dict, cfg):
         len_trees=len(trees),
         len_tree=len(tree),
         bank_count=bank_count,
-        max_parallel_samples = 6
+        max_parallel_samples = max_parallel_samples
     ).dump('{}/firmware/parameters.h'.format(cfg['OutputDir']))
 
 
@@ -314,38 +316,34 @@ def write(ensemble_dict, cfg):
     #######################
     # build_system_bd.tcl
     #######################
-"""
-# 7
-###################################################################################################################################
-###################################################################################################################################
-################################# B U I L D _ S Y S T E M _ B D . T C L ###########################################################
-###################################################################################################################################
-###################################################################################################################################
 
-env.filters["log"] = math.log
+    if cfg.get('PDR', False) == True:
 
-if cfg.get('PDR', False) == True:
-    
-    template = env.get_template('build_system_bd.tcl')
+        template = env.get_template('system-template/top_system.tcl.jinja')
+
+        precision = int(cfg['Precision'].split('<')[1].split(',')[0])
 
 
-    output = template.render(
-        cfg=cfg,
-        file =open(os.path.join(filedir, 'system-template/top_system.tcl'), 'r'),
-        class_count=class_count,
-        bank_count=bank_count,
-        ensemble_dict=ensemble_dict,
-        max_parallel_samples=max_parallel_samples
-    )
-
-    with open('{}/build_system_bd.tcl'.format(cfg['OutputDir']), 'w') as build_system_bd_tcl:
-        build_system_bd_tcl.write(output)
+        template.stream(
+                projectname=cfg['ProjectName'],
+                XilinxPart=cfg['XilinxPart'],
+                XilinxBoard=cfg['XilinxBoard'],
+                TreesPerBank=int(cfg['TreesPerBank']),
+                bank_count=bank_count,
+                class_count=class_count,
+                max_parallel_samples=max_parallel_samples,
+                num1=int((2**math.ceil(math.log(precision, 2)))*ensemble_dict['n_features']),
+                num2=int(8*math.ceil(precision)/8),
+                num3=int(2**math.ceil(math.log(8*(math.ceil(precision)/8), 2))),
+                num4=int(math.ceil(math.log(int(max_parallel_samples), 2))+1)
+        ).dump('{}/build_system_bd.tcl'.format(cfg['OutputDir']))
         
 
 
     #######################
     # build_tree_wrapper.tcl
     #######################
+"""
 # 8
 ###################################################################################################################################
 ###################################################################################################################################
