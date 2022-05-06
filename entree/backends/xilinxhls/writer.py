@@ -352,7 +352,7 @@ def write(ensemble_dict, cfg):
                 XilinxPart=cfg['XilinxPart'],
                 XilinxBoard=cfg['XilinxBoard'],
                 TreesPerBank=int(cfg['TreesPerBank']),
-                TreePerClass=int(cfg['TreesPerBank']),
+                TreesPerClass=int(cfg['TreesPerClass']),
                 bank_count=bank_count,
                 class_count=class_count,
                 max_parallel_samples=max_parallel_samples,
