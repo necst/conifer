@@ -149,13 +149,11 @@ current_bd_design $design_name
 # Set parent object as current
 current_bd_instance $parentObj
 
-## hls-fpga-machine-learning insert processing-system-block
-# Currently support Ultrascale+, TODO: add a way to include both
-# create_bd_cell -type ip -vlnv xilinx.com:ip:processing_system7:5.5 processing_system7
-# apply_bd_automation -rule xilinx.com:bd_rule:processing_system7 -config {make_external "FIXED_IO, DDR" apply_board_preset "1" Master "Disable" Slave "Disable" }  [get_bd_cells processing_system7]
+## Insert processing-system-block
+# Currently support Ultrascale+
 create_bd_cell -type ip -vlnv xilinx.com:ip:zynq_ultra_ps_e:3.3 zynq_ultra_ps_e_0
 apply_bd_automation -rule xilinx.com:bd_rule:zynq_ultra_ps_e -config {apply_board_preset "1" }  [get_bd_cells zynq_ultra_ps_e_0]
-set_property -dict [list CONFIG.PCW_USE_S_AXI_HP0 {1} CONFIG.PCW_USE_FABRIC_INTERRUPT {1} CONFIG.PCW_IRQ_F2P_INTR {1}] [get_bd_cells processing_system7]
+set_property -dict [list CONFIG.PSU__USE__M_AXI_GP1 {0} CONFIG.PSU__USE__S_AXI_GP0 {1}] [get_bd_cells zynq_ultra_ps_e_0]
 
 # Create instance: axi_dma_samples, and set properties
 set axi_dma_samples [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dma:7.1 axi_dma_samples ]
@@ -334,10 +332,7 @@ for {set i 0} {$i < $n_classes} {incr i} {
 
 connect_bd_net -net xlconcat_dout1 [get_bd_pins interrupt_controller/intr] [get_bd_pins xlconcat/dout]
 
-## TODO: add back also Zynq-7000
-## connect_bd_net -net interrupt_controller_irq [get_bd_pins interrupt_controller/irq] [get_bd_pins processing_system7/IRQ_F2P]
 #Ultra96
-# connect_bd_net -net interrupt_controller_irq [get_bd_pins interrupt_controller/irq] [get_bd_pins processing_system7/IRQ_F2P]
 connect_bd_net -net interrupt_controller_irq [get_bd_pins interrupt_controller/irq] [get_bd_pins zynq_ultra_ps_e_0/pl_ps_irq0]
 
 #AXI4-Lite
@@ -363,33 +358,7 @@ for {set i 0} {$i < $n_classes} {incr i} {
 endgroup
 
 #Clocks
-#TODO: add back also Zynq-7000
-# startgroup
-# apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_broadcaster_ctrl/aclk]
-# apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_broadcaster_samples/aclk]
-# for {set i 0} {$i < $n_banks} {incr i} {
-#    apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_broadcaster_bank_${i}/aclk]
-# }
-# for {set i 0} {$i < $n_classes} {incr i} {
-#    apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_dwidth_converter_${i}/aclk]
-# }
-# for {set i 0} {$i < $n_banks} {incr i} {
-#    apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_${i}/ACLK]
-#    apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_${i}/M00_AXIS_ACLK]
-#    for {set j 0} {$j < $n_trees_per_bank} {incr j} {
-#       apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_${i}/[format "S%02d" $j]_AXIS_ACLK]
-#    }
-# }
-# apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_x/ACLK]
-# for {set i 0} {$i < $n_classes} {incr i} {
-#    apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_x/[format "M%02d" $i]_AXIS_ACLK]
-# }
-# for {set i 0} {$i < $n_banks} {incr i} {
-#    for {set j 0} {$j < $n_trees_per_bank} {incr j} {
-#       apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins tree_${i}_${j}/ap_clk]
-#    }
-# }
-# endgroup
+
 startgroup
 apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/zynq_ultra_ps_e_0/pl_clk0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_broadcaster_ctrl/aclk]
 apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/zynq_ultra_ps_e_0/pl_clk0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_broadcaster_samples/aclk]
