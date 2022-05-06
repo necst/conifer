@@ -326,9 +326,9 @@ def write(ensemble_dict, cfg):
 
         # Set tree_rp and tree_rm
         n_banks = int(cfg['Banks'])
-        n_trees_per_bank = int(cfg['TreePerBanks'])
+        n_trees_per_bank = int(cfg['TreesPerBank'])
         n_classes = int(ensemble_dict['n_classes'],)
-        n_trees_per_class = int(cfg['TreePerClass'])
+        n_trees_per_class = int(cfg['TreesPerClass'])
 
         list = [[] for i in range(n_banks*n_trees_per_bank)]
         counter = 0
@@ -352,7 +352,7 @@ def write(ensemble_dict, cfg):
                 XilinxPart=cfg['XilinxPart'],
                 XilinxBoard=cfg['XilinxBoard'],
                 TreesPerBank=int(cfg['TreesPerBank']),
-                TreePerClass=int(cfg['TreePerBank']),
+                TreePerClass=int(cfg['TreesPerBank']),
                 bank_count=bank_count,
                 class_count=class_count,
                 max_parallel_samples=max_parallel_samples,
