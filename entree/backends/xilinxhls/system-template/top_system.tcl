@@ -51,17 +51,17 @@ if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
 set prj_root  [lindex $argv 0]
 set prj_dir [lindex $argv 1]
 set ip_dir [lindex $argv 2]
-set prj_name ## hls-fpga-machine-learning insert project-name
-set prj_part ## hls-fpga-machine-learning insert project-part
-set prj_board ## hls-fpga-machine-learning insert project-board
-set sample_length ## hls-fpga-machine-learning insert sample_length
-set n_classes ## hls-fpga-machine-learning insert n-classes
-set n_trees_per_class ## hls-fpga-machine-learning insert n-trees-per-class
-set result_lenght ## hls-fpga-machine-learning insert result_lenght
-set output_length ## hls-fpga-machine-learning insert output_length
-set n_banks ## hls-fpga-machine-learning insert n-banks
-set n_trees_per_bank ## hls-fpga-machine-learning insert n-trees-per-bank
-set id_length ## hls-fpga-machine-learning insert id-length
+set prj_name {{projectname}}_system
+set prj_part {{XilinxPart}}
+set prj_board {{XilinxBoard}}
+set sample_length {{num1}}
+set n_classes {{class_count}}
+set n_trees_per_class {{TreesPerClass}}
+set result_lenght {{num2}}
+set output_length {{num3}}
+set n_banks {{bank_count}}
+set n_trees_per_bank {{TreesPerBank}}
+set id_length {{num4}}
 
 
 ################################################################
@@ -129,7 +129,7 @@ set oldCurInst [current_bd_instance .]
 for {set i 0} {$i < $n_classes} {incr i} {
     for {set j 0} {$j < $n_trees_per_class} {incr j} {
 		create_bd_design tree_rm_${i}_${j}
-		create_bd_cell -type ip -vlnv xilinx.com:##project_name##:tree_cl${i}_${j}:1.0 tree_cl${i}_${j}_0
+		create_bd_cell -type ip -vlnv xilinx.com:{{projectname}}:tree_cl${i}_${j}:1.0 tree_cl${i}_${j}_0
 		startgroup
 		make_bd_intf_pins_external  [get_bd_intf_pins tree_cl${i}_${j}_0/input_stream]
 		make_bd_pins_external  [get_bd_pins tree_cl${i}_${j}_0/ap_clk]
@@ -149,8 +149,8 @@ current_bd_design $design_name
 # Set parent object as current
 current_bd_instance $parentObj
 
-# Currently support Ultrascale+, TODO: add a way to include both
 ## hls-fpga-machine-learning insert processing-system-block
+# Currently support Ultrascale+, TODO: add a way to include both
 # create_bd_cell -type ip -vlnv xilinx.com:ip:processing_system7:5.5 processing_system7
 # apply_bd_automation -rule xilinx.com:bd_rule:processing_system7 -config {make_external "FIXED_IO, DDR" apply_board_preset "1" Master "Disable" Slave "Disable" }  [get_bd_cells processing_system7]
 create_bd_cell -type ip -vlnv xilinx.com:ip:zynq_ultra_ps_e:3.3 zynq_ultra_ps_e_0
@@ -180,7 +180,7 @@ CONFIG.c_sg_include_stscntrl_strm {0} \
 
 
 # Create instance: enumerator, and set properties
-set enumerator [ create_bd_cell -type ip -vlnv xilinx.com:##project_name##:enumerator:1.0 enumerator ]
+set enumerator [ create_bd_cell -type ip -vlnv xilinx.com:{{projectname}}:enumerator:1.0 enumerator ]
 
 # Create instance: axis_broadcaster_samples, and set properties
 set axis_broadcaster_samples [ create_bd_cell -type ip -vlnv xilinx.com:ip:axis_broadcaster:1.1 axis_broadcaster_samples ]
@@ -192,14 +192,14 @@ set_property CONFIG.NUM_MI $n_banks $axis_broadcaster_ctrl
 
 # Create instance: bank_buffer, broadcasters, dfx_decoupler, tree, vote_buffer, and set properties
 for {set i 0} {$i < $n_banks} {incr i} {
-   set bank_buffer_$i [ create_bd_cell -type ip -vlnv xilinx.com:##project_name##:bank_buffer_[expr $i + 1]:1.0 bank_buffer_$i ]
+   set bank_buffer_$i [ create_bd_cell -type ip -vlnv xilinx.com:{{projectname}}:bank_buffer_[expr $i + 1]:1.0 bank_buffer_$i ]
    set axis_broadcaster_bank_$i [ create_bd_cell -type ip -vlnv xilinx.com:ip:axis_broadcaster:1.1 axis_broadcaster_bank_$i ]
    set_property CONFIG.NUM_MI $n_trees_per_bank [set axis_broadcaster_bank_$i]
    for {set j 0} {$j < $n_trees_per_bank} {incr j} {
    create_bd_cell -type ip -vlnv xilinx.com:ip:dfx_decoupler:1.0 dfx_decoupler_${i}_${j}
    set_property -dict [list CONFIG.ALL_PARAMS {HAS_SIGNAL_CONTROL 1 HAS_SIGNAL_STATUS 1 INTF {input_stream {ID 0 VLNV xilinx.com:interface:axis_rtl:1.0 MODE slave}}} CONFIG.GUI_SELECT_INTERFACE {0} CONFIG.GUI_INTERFACE_NAME {input_stream} CONFIG.GUI_SELECT_VLNV {xilinx.com:interface:axis_rtl:1.0} CONFIG.GUI_SELECT_MODE {slave} CONFIG.GUI_SIGNAL_SELECT_0 {TVALID} CONFIG.GUI_SIGNAL_SELECT_1 {TREADY} CONFIG.GUI_SIGNAL_SELECT_2 {TDATA} CONFIG.GUI_SIGNAL_SELECT_3 {TUSER} CONFIG.GUI_SIGNAL_SELECT_4 {TLAST} CONFIG.GUI_SIGNAL_SELECT_5 {TID} CONFIG.GUI_SIGNAL_SELECT_6 {TDEST} CONFIG.GUI_SIGNAL_SELECT_7 {TSTRB} CONFIG.GUI_SIGNAL_SELECT_8 {TKEEP} CONFIG.GUI_SIGNAL_DECOUPLED_0 {true} CONFIG.GUI_SIGNAL_DECOUPLED_1 {true} CONFIG.GUI_SIGNAL_PRESENT_0 {true} CONFIG.GUI_SIGNAL_PRESENT_1 {true} CONFIG.GUI_SIGNAL_PRESENT_2 {true} CONFIG.GUI_SIGNAL_PRESENT_4 {true} CONFIG.GUI_SIGNAL_WIDTH_2 {32} CONFIG.GUI_SIGNAL_WIDTH_7 {4} CONFIG.GUI_SIGNAL_WIDTH_8 {4}] [get_bd_cells dfx_decoupler_${i}_${j}]
    set_property -dict [list CONFIG.ALL_PARAMS {HAS_SIGNAL_CONTROL 1 HAS_SIGNAL_STATUS 1 INTF {input_stream {ID 0 VLNV xilinx.com:interface:axis_rtl:1.0 MODE slave} output_stream {ID 1 VLNV xilinx.com:interface:axis_rtl:1.0}}} CONFIG.GUI_SELECT_INTERFACE {1} CONFIG.GUI_INTERFACE_NAME {output_stream} CONFIG.GUI_SELECT_VLNV {xilinx.com:interface:axis_rtl:1.0} CONFIG.GUI_SELECT_MODE {master} CONFIG.GUI_SIGNAL_SELECT_0 {TVALID} CONFIG.GUI_SIGNAL_SELECT_1 {TREADY} CONFIG.GUI_SIGNAL_SELECT_2 {TDATA} CONFIG.GUI_SIGNAL_SELECT_3 {TUSER} CONFIG.GUI_SIGNAL_SELECT_4 {TLAST} CONFIG.GUI_SIGNAL_SELECT_5 {TID} CONFIG.GUI_SIGNAL_SELECT_6 {TDEST} CONFIG.GUI_SIGNAL_SELECT_7 {TSTRB} CONFIG.GUI_SIGNAL_SELECT_8 {TKEEP} CONFIG.GUI_SIGNAL_DECOUPLED_0 {true} CONFIG.GUI_SIGNAL_DECOUPLED_1 {true} CONFIG.GUI_SIGNAL_PRESENT_0 {true} CONFIG.GUI_SIGNAL_PRESENT_1 {true} CONFIG.GUI_SIGNAL_PRESENT_2 {true} CONFIG.GUI_SIGNAL_PRESENT_4 {true} CONFIG.GUI_SIGNAL_WIDTH_2 {32} CONFIG.GUI_SIGNAL_WIDTH_7 {4} CONFIG.GUI_SIGNAL_WIDTH_8 {4}] [get_bd_cells dfx_decoupler_${i}_${j}]
-   set vote_buffer_${i}_${j} [ create_bd_cell -type ip -vlnv xilinx.com:##project_name##:vote_buffer:1.0 vote_buffer_${i}_${j} ]
+   set vote_buffer_${i}_${j} [ create_bd_cell -type ip -vlnv xilinx.com:{{projectname}}:vote_buffer:1.0 vote_buffer_${i}_${j} ]
    }
 
    # Create instance: axis_interconnect_0, and set properties
@@ -233,7 +233,7 @@ CONFIG.NUM_SI $n_banks \
 # Create instance: voting_station, and set properties
 for {set i 0} {$i < $n_classes} {incr i} {
 
-set voting_station_cl${i} [ create_bd_cell -type ip -vlnv xilinx.com:##project_name##:voting_station_cl${i}:1.0 voting_station_cl${i} ]
+set voting_station_cl${i} [ create_bd_cell -type ip -vlnv xilinx.com:{{projectname}}:voting_station_cl${i}:1.0 voting_station_cl${i} ]
 set axis_dwidth_converter_${i} [ create_bd_cell -type ip -vlnv xilinx.com:ip:axis_dwidth_converter:1.1 axis_dwidth_converter_${i} ]
 set_property -dict [ list \
    CONFIG.M_TDATA_NUM_BYTES $output_length \
@@ -263,7 +263,6 @@ set_property -dict [list CONFIG.C_IRQ_CONNECTION {1}] $interrupt_controller
 set i_class 0
 set j_tree_in_class 0
 
-# TODO: write the correct command to enable multiple RMs on single DFX block
 for {set i 0} {$i < $n_banks} {incr i} {
     for {set j 0} {$j < $n_trees_per_bank} {incr j} {	
 		create_bd_cell -type container -reference tree_rm_${i_class}_${j_tree_in_class} tree_rm_${i_class}_${j_tree_in_class}
@@ -279,6 +278,29 @@ for {set i 0} {$i < $n_banks} {incr i} {
 	}
 }
 
+# Assign the correct RMs to every single RP, using jinja
+{%- set ns=namespace(newline='') %}
+{%- set nss=namespace(rm_newline='') %}
+{%- for set_property in set_properties%}
+    {%- set nss.rm_newline='{' %}
+    {%- set nsss=namespace(count=0)%}
+        {%- for rm in set_property.rm%}
+            {%- if nsss.count==0%}
+            {%- set nss.rm_newline='%s%s'|format(nss.rm_newline,rm) %}
+            {%- set nsss.count = nsss.count + 1 %}
+            {%- else %}
+            {%- set nss.rm_newline='%s:%s'|format(nss.rm_newline,rm) %}
+            {%- endif %}
+        {%- endfor%}
+    {%- set nss.rm_newline='%s}'|format(nss.rm_newline) %}
+    {%- set ns.newline='%sset_property -dict [list CONFIG.LIST_SYNTH_BD %s'|format(ns.newline,nss.rm_newline)%}
+    {%- set ns.newline='%s CONFIG.LIST_SIM_BD %s'|format(ns.newline,nss.rm_newline)%}
+    {%- set ns.newline='%s] [get_bd_cells /'|format(ns.newline)%}
+    {%- set ns.newline='%s%s]\n'|format(ns.newline,set_property.rp)%}
+{%- endfor %}
+{{ns.newline}}
+
+############################################
 
 # Nets
 connect_bd_intf_net -intf_net axi_dma_samples_M_AXIS_MM2S [get_bd_intf_pins axi_dma_samples/M_AXIS_MM2S] [get_bd_intf_pins enumerator/input_stream]
