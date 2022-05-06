@@ -38,6 +38,7 @@ cfg['ClockPeriod'] = "10"
 cfg['PDR'] = True
 cfg['Banks'] = "2"
 cfg['TreesPerBank'] = "3"
+cfg['TreePerClass'] = "6"
 
 
 model = entree.model(clf, entree.converters.sklearn,
