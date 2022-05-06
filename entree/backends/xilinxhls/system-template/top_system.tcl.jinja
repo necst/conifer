@@ -35,7 +35,7 @@ set script_folder [_tcl::get_script_folder]
 ################################################################
 # Check if script is running in correct Vivado version.
 ################################################################
-set scripts_vivado_version 2020.2
+set scripts_vivado_version 2021.2
 set current_vivado_version [version -short]
 
 if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
@@ -56,6 +56,7 @@ set prj_part {{XilinxPart}}
 set prj_board {{XilinxBoard}}
 set sample_length {{num1}}
 set n_classes {{class_count}}
+set n_trees_per_class {{TreesPerClass}}
 set result_lenght {{num2}}
 set output_length {{num3}}
 set n_banks {{bank_count}}
@@ -124,14 +125,36 @@ if { $parentObj == "" } {
 # Save current instance; Restore later
 set oldCurInst [current_bd_instance .]
 
+# Create reconfigurable modules as block design containing single tree IPs
+for {set i 0} {$i < $n_classes} {incr i} {
+    for {set j 0} {$j < $n_trees_per_class} {incr j} {
+		create_bd_design tree_rm_${i}_${j}
+		create_bd_cell -type ip -vlnv xilinx.com:{{projectname}}:tree_cl${i}_${j}:1.0 tree_cl${i}_${j}_0
+		startgroup
+		make_bd_intf_pins_external  [get_bd_intf_pins tree_cl${i}_${j}_0/input_stream]
+		make_bd_pins_external  [get_bd_pins tree_cl${i}_${j}_0/ap_clk]
+		make_bd_pins_external  [get_bd_pins tree_cl${i}_${j}_0/ap_rst_n]
+		make_bd_intf_pins_external  [get_bd_intf_pins tree_cl${i}_${j}_0/output_stream]
+		endgroup
+		set_property name input_stream [get_bd_intf_ports input_stream_0]
+		set_property name ap_clk [get_bd_ports ap_clk_0]
+		set_property name ap_rst_n [get_bd_ports ap_rst_n_0]
+		set_property name output_stream [get_bd_intf_ports output_stream_0]
+		validate_bd_design
+		save_bd_design
+	}
+}
+
+current_bd_design $design_name
 # Set parent object as current
 current_bd_instance $parentObj
 
-# TODO: Add support for Zynq UltraScale+
 ## hls-fpga-machine-learning insert processing-system-block
-# Zynq-7000 (Pynq-Z2)
-create_bd_cell -type ip -vlnv xilinx.com:ip:processing_system7:5.5 processing_system7
-apply_bd_automation -rule xilinx.com:bd_rule:processing_system7 -config {make_external "FIXED_IO, DDR" apply_board_preset "1" Master "Disable" Slave "Disable" }  [get_bd_cells processing_system7]
+# Currently support Ultrascale+, TODO: add a way to include both
+# create_bd_cell -type ip -vlnv xilinx.com:ip:processing_system7:5.5 processing_system7
+# apply_bd_automation -rule xilinx.com:bd_rule:processing_system7 -config {make_external "FIXED_IO, DDR" apply_board_preset "1" Master "Disable" Slave "Disable" }  [get_bd_cells processing_system7]
+create_bd_cell -type ip -vlnv xilinx.com:ip:zynq_ultra_ps_e:3.3 zynq_ultra_ps_e_0
+apply_bd_automation -rule xilinx.com:bd_rule:zynq_ultra_ps_e -config {apply_board_preset "1" }  [get_bd_cells zynq_ultra_ps_e_0]
 set_property -dict [list CONFIG.PCW_USE_S_AXI_HP0 {1} CONFIG.PCW_USE_FABRIC_INTERRUPT {1} CONFIG.PCW_IRQ_F2P_INTR {1}] [get_bd_cells processing_system7]
 
 # Create instance: axi_dma_samples, and set properties
@@ -176,7 +199,6 @@ for {set i 0} {$i < $n_banks} {incr i} {
    create_bd_cell -type ip -vlnv xilinx.com:ip:dfx_decoupler:1.0 dfx_decoupler_${i}_${j}
    set_property -dict [list CONFIG.ALL_PARAMS {HAS_SIGNAL_CONTROL 1 HAS_SIGNAL_STATUS 1 INTF {input_stream {ID 0 VLNV xilinx.com:interface:axis_rtl:1.0 MODE slave}}} CONFIG.GUI_SELECT_INTERFACE {0} CONFIG.GUI_INTERFACE_NAME {input_stream} CONFIG.GUI_SELECT_VLNV {xilinx.com:interface:axis_rtl:1.0} CONFIG.GUI_SELECT_MODE {slave} CONFIG.GUI_SIGNAL_SELECT_0 {TVALID} CONFIG.GUI_SIGNAL_SELECT_1 {TREADY} CONFIG.GUI_SIGNAL_SELECT_2 {TDATA} CONFIG.GUI_SIGNAL_SELECT_3 {TUSER} CONFIG.GUI_SIGNAL_SELECT_4 {TLAST} CONFIG.GUI_SIGNAL_SELECT_5 {TID} CONFIG.GUI_SIGNAL_SELECT_6 {TDEST} CONFIG.GUI_SIGNAL_SELECT_7 {TSTRB} CONFIG.GUI_SIGNAL_SELECT_8 {TKEEP} CONFIG.GUI_SIGNAL_DECOUPLED_0 {true} CONFIG.GUI_SIGNAL_DECOUPLED_1 {true} CONFIG.GUI_SIGNAL_PRESENT_0 {true} CONFIG.GUI_SIGNAL_PRESENT_1 {true} CONFIG.GUI_SIGNAL_PRESENT_2 {true} CONFIG.GUI_SIGNAL_PRESENT_4 {true} CONFIG.GUI_SIGNAL_WIDTH_2 {32} CONFIG.GUI_SIGNAL_WIDTH_7 {4} CONFIG.GUI_SIGNAL_WIDTH_8 {4}] [get_bd_cells dfx_decoupler_${i}_${j}]
    set_property -dict [list CONFIG.ALL_PARAMS {HAS_SIGNAL_CONTROL 1 HAS_SIGNAL_STATUS 1 INTF {input_stream {ID 0 VLNV xilinx.com:interface:axis_rtl:1.0 MODE slave} output_stream {ID 1 VLNV xilinx.com:interface:axis_rtl:1.0}}} CONFIG.GUI_SELECT_INTERFACE {1} CONFIG.GUI_INTERFACE_NAME {output_stream} CONFIG.GUI_SELECT_VLNV {xilinx.com:interface:axis_rtl:1.0} CONFIG.GUI_SELECT_MODE {master} CONFIG.GUI_SIGNAL_SELECT_0 {TVALID} CONFIG.GUI_SIGNAL_SELECT_1 {TREADY} CONFIG.GUI_SIGNAL_SELECT_2 {TDATA} CONFIG.GUI_SIGNAL_SELECT_3 {TUSER} CONFIG.GUI_SIGNAL_SELECT_4 {TLAST} CONFIG.GUI_SIGNAL_SELECT_5 {TID} CONFIG.GUI_SIGNAL_SELECT_6 {TDEST} CONFIG.GUI_SIGNAL_SELECT_7 {TSTRB} CONFIG.GUI_SIGNAL_SELECT_8 {TKEEP} CONFIG.GUI_SIGNAL_DECOUPLED_0 {true} CONFIG.GUI_SIGNAL_DECOUPLED_1 {true} CONFIG.GUI_SIGNAL_PRESENT_0 {true} CONFIG.GUI_SIGNAL_PRESENT_1 {true} CONFIG.GUI_SIGNAL_PRESENT_2 {true} CONFIG.GUI_SIGNAL_PRESENT_4 {true} CONFIG.GUI_SIGNAL_WIDTH_2 {32} CONFIG.GUI_SIGNAL_WIDTH_7 {4} CONFIG.GUI_SIGNAL_WIDTH_8 {4}] [get_bd_cells dfx_decoupler_${i}_${j}]
-   set tree_${i}_${j} [ create_bd_cell -type ip -vlnv xilinx.com:{{projectname}}:tree_wrapper:1.0 tree_${i}_${j} ]
    set vote_buffer_${i}_${j} [ create_bd_cell -type ip -vlnv xilinx.com:{{projectname}}:vote_buffer:1.0 vote_buffer_${i}_${j} ]
    }
 
@@ -237,6 +259,48 @@ CONFIG.NUM_PORTS [expr $n_banks*$n_trees_per_bank] \
 set interrupt_controller [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_intc:4.1 interrupt_controller ]
 set_property -dict [list CONFIG.C_IRQ_CONNECTION {1}] $interrupt_controller
 
+# Create instance: BD container for trees starting from the first class, enable DFX on them
+set i_class 0
+set j_tree_in_class 0
+
+for {set i 0} {$i < $n_banks} {incr i} {
+    for {set j 0} {$j < $n_trees_per_bank} {incr j} {	
+		create_bd_cell -type container -reference tree_rm_${i_class}_${j_tree_in_class} tree_rm_${i_class}_${j_tree_in_class}
+		set_property -dict [list CONFIG.ENABLE_DFX {true}] [get_bd_cells tree_rm_${i_class}_${j_tree_in_class}]	
+		set_property name tree_rp_${i}_${j} [get_bd_cells tree_rm_${i_class}_${j_tree_in_class}]
+		
+		if {$j_tree_in_class < [expr { $n_trees_per_class - 1 }] } {
+			incr j_tree_in_class	
+		} else {
+			set j_tree_in_class 0
+			incr i_class
+		}
+	}
+}
+
+# Assign the correct RMs to every single RP, using jinja
+{%- set ns=namespace(newline='') %}
+{%- set nss=namespace(rm_newline='') %}
+{%- for set_property in set_properties%}
+    {%- set nss.rm_newline='{' %}
+    {%- set nsss=namespace(count=0)%}
+        {%- for rm in set_property.rm%}
+            {%- if nsss.count==0%}
+            {%- set nss.rm_newline='%s%s'|format(nss.rm_newline,rm) %}
+            {%- set nsss.count = nsss.count + 1 %}
+            {%- else %}
+            {%- set nss.rm_newline='%s:%s'|format(nss.rm_newline,rm) %}
+            {%- endif %}
+        {%- endfor%}
+    {%- set nss.rm_newline='%s}'|format(nss.rm_newline) %}
+    {%- set ns.newline='%sset_property -dict [list CONFIG.LIST_SYNTH_BD %s'|format(ns.newline,nss.rm_newline)%}
+    {%- set ns.newline='%s CONFIG.LIST_SIM_BD %s'|format(ns.newline,nss.rm_newline)%}
+    {%- set ns.newline='%s] [get_bd_cells /'|format(ns.newline)%}
+    {%- set ns.newline='%s%s]\n'|format(ns.newline,set_property.rp)%}
+{%- endfor %}
+{{ns.newline}}
+
+############################################
 
 # Nets
 connect_bd_intf_net -intf_net axi_dma_samples_M_AXIS_MM2S [get_bd_intf_pins axi_dma_samples/M_AXIS_MM2S] [get_bd_intf_pins enumerator/input_stream]
@@ -247,20 +311,16 @@ for {set i 0} {$i < $n_banks} {incr i} {
       connect_bd_intf_net -intf_net [format "axis_broadcaster_ctrl_M%02d_AXIS" $i] [get_bd_intf_pins [format "axis_broadcaster_ctrl/M%02d_AXIS" $i]] [get_bd_intf_pins bank_buffer_${i}/command_stream]
       connect_bd_intf_net -intf_net bank_buffer_${i}_output_stream [get_bd_intf_pins bank_buffer_${i}/output_stream] [get_bd_intf_pins axis_broadcaster_bank_${i}/S_AXIS]
       for {set j 0} {$j < $n_trees_per_bank} {incr j} {
-            connect_bd_intf_net -intf_net s_input_stream_${i}_${j} [get_bd_intf_pins axis_broadcaster_bank_${i}/[format "M%02d_AXIS" $j]] [get_bd_intf_pins dfx_decoupler_${i}_${j}/s_input_stream]
-            connect_bd_intf_net -intf_net rp_input_stream_${i}_${j} [get_bd_intf_pins dfx_decoupler_${i}_${j}/rp_input_stream] [get_bd_intf_pins tree_${i}_${j}/input_stream]
-            connect_bd_intf_net -intf_net rp_output_stream_${i}_${j} [get_bd_intf_pins tree_${i}_${j}/output_stream] [get_bd_intf_pins dfx_decoupler_${i}_${j}/rp_output_stream]
-            connect_bd_intf_net -intf_net s_output_stream_${i}_${j} [get_bd_intf_pins dfx_decoupler_${i}_${j}/s_output_stream] [get_bd_intf_pins vote_buffer_${i}_${j}/input_stream]
-            connect_bd_intf_net -intf_net axis_interconnect_${i}_[format "S%02d_AXIS" $j] [get_bd_intf_pins vote_buffer_${i}_${j}/output_stream] [get_bd_intf_pins axis_interconnect_${i}/[format "S%02d_AXIS" $j]]
-            connect_bd_net -net tree_${i}_${j}_irq [get_bd_pins vote_buffer_${i}_${j}/irq] [get_bd_pins xlconcat/In[expr $i*$n_trees_per_bank+$j]]
-            connect_bd_net [get_bd_pins dfx_decoupler_${i}_${j}/decouple_status] [get_bd_pins concat_decoupler_status_${i}/In${j}]
-            if {$j == 0} {
-               connect_bd_net -net axi_gpio_${i}_decouplers_gpio_io_o [get_bd_pins dfx_decoupler_${i}_${j}/decouple] [get_bd_pins axi_gpio_${i}_decouplers/gpio_io_o]
-               connect_bd_net -net axi_gpio_${i}_resets_gpio_io_o [get_bd_pins tree_${i}_${j}/resetn] [get_bd_pins axi_gpio_${i}_reset/gpio_io_o]
-            } else {
-               connect_bd_net -net axi_gpio_${i}_decouplers_gpio_io_o [get_bd_pins dfx_decoupler_${i}_${j}/decouple]
-               connect_bd_net -net axi_gpio_${i}_resets_gpio_io_o [get_bd_pins tree_${i}_${j}/resetn]
-            }
+         connect_bd_intf_net -intf_net s_input_stream_${i}_${j} [get_bd_intf_pins axis_broadcaster_bank_${i}/[format "M%02d_AXIS" $j]] [get_bd_intf_pins dfx_decoupler_${i}_${j}/s_input_stream]
+			connect_bd_intf_net [get_bd_intf_pins dfx_decoupler_${i}_${j}/rp_input_stream] -boundary_type upper [get_bd_intf_pins tree_rp_${i}_${j}/input_stream]			
+			connect_bd_intf_net -boundary_type upper [get_bd_intf_pins tree_rp_${i}_${j}/output_stream] [get_bd_intf_pins dfx_decoupler_${i}_${j}/rp_output_stream]
+         connect_bd_intf_net -intf_net s_output_stream_${i}_${j} [get_bd_intf_pins dfx_decoupler_${i}_${j}/s_output_stream] [get_bd_intf_pins vote_buffer_${i}_${j}/input_stream]
+         connect_bd_intf_net -intf_net axis_interconnect_${i}_[format "S%02d_AXIS" $j] [get_bd_intf_pins vote_buffer_${i}_${j}/output_stream] [get_bd_intf_pins axis_interconnect_${i}/[format "S%02d_AXIS" $j]]
+         connect_bd_net [get_bd_pins vote_buffer_${i}_${j}/irq] [get_bd_pins xlconcat/In[expr $i*$n_trees_per_bank+$j]]
+         connect_bd_net [get_bd_pins dfx_decoupler_${i}_${j}/decouple_status] [get_bd_pins concat_decoupler_status_${i}/In${j}]
+         connect_bd_net -net axi_gpio_${i}_decouplers_gpio_io_o [get_bd_pins dfx_decoupler_${i}_${j}/decouple] [get_bd_pins axi_gpio_${i}_decouplers/gpio_io_o]
+			connect_bd_net [get_bd_pins axi_gpio_${i}_reset/gpio_io_o] [get_bd_pins tree_rp_${i}_${j}/ap_rst_n]
+
       }
       connect_bd_net [get_bd_pins concat_decoupler_status_${i}/dout] [get_bd_pins axi_gpio_${i}_decouplers/gpio2_io_i]
       connect_bd_intf_net -intf_net axis_interconnect_x_[format "S%02d_AXIS" $i] [get_bd_intf_pins axis_interconnect_${i}/M00_AXIS] [get_bd_intf_pins axis_interconnect_x/[format "S%02d_AXIS" $i]]
@@ -274,53 +334,85 @@ for {set i 0} {$i < $n_classes} {incr i} {
 
 connect_bd_net -net xlconcat_dout1 [get_bd_pins interrupt_controller/intr] [get_bd_pins xlconcat/dout]
 
-#Zynq-7000
-connect_bd_net -net interrupt_controller_irq [get_bd_pins interrupt_controller/irq] [get_bd_pins processing_system7/IRQ_F2P]
+## TODO: add back also Zynq-7000
+## connect_bd_net -net interrupt_controller_irq [get_bd_pins interrupt_controller/irq] [get_bd_pins processing_system7/IRQ_F2P]
+#Ultra96
+# connect_bd_net -net interrupt_controller_irq [get_bd_pins interrupt_controller/irq] [get_bd_pins processing_system7/IRQ_F2P]
+connect_bd_net -net interrupt_controller_irq [get_bd_pins interrupt_controller/irq] [get_bd_pins zynq_ultra_ps_e_0/pl_ps_irq0]
+
 #AXI4-Lite
 startgroup
 for {set i 0} {$i < $n_classes} {incr i} {
-   apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7/M_AXI_GP0} Slave {/axi_dma_cl${i}/S_AXI_LITE} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins axi_dma_cl${i}/S_AXI_LITE]
+   apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/zynq_ultra_ps_e_0/M_AXI_HPM0_FPD} Slave {/axi_dma_cl${i}/S_AXI_LITE} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins axi_dma_cl${i}/S_AXI_LITE]
 }
-apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7/M_AXI_GP0} Slave {/axi_dma_ctrl/S_AXI_LITE} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins axi_dma_ctrl/S_AXI_LITE]
-apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7/M_AXI_GP0} Slave {/axi_dma_samples/S_AXI_LITE} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins axi_dma_samples/S_AXI_LITE]
+apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/zynq_ultra_ps_e_0/M_AXI_HPM0_FPD} Slave {/axi_dma_ctrl/S_AXI_LITE} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins axi_dma_ctrl/S_AXI_LITE]
+apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/zynq_ultra_ps_e_0/M_AXI_HPM0_FPD} Slave {/axi_dma_samples/S_AXI_LITE} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins axi_dma_samples/S_AXI_LITE]
 for {set i 0} {$i < $n_banks} {incr i} {
-   apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7/M_AXI_GP0} Slave {/axi_gpio_${i}_decouplers/S_AXI} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins axi_gpio_${i}_decouplers/S_AXI]
-   apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7/M_AXI_GP0} Slave {/axi_gpio_${i}_reset/S_AXI} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins axi_gpio_${i}_reset/S_AXI]
+   apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/zynq_ultra_ps_e_0/M_AXI_HPM0_FPD} Slave {/axi_gpio_${i}_decouplers/S_AXI} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins axi_gpio_${i}_decouplers/S_AXI]
+   apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/zynq_ultra_ps_e_0/M_AXI_HPM0_FPD} Slave {/axi_gpio_${i}_reset/S_AXI} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins axi_gpio_${i}_reset/S_AXI]
 }
-apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7/M_AXI_GP0} Slave {/interrupt_controller/s_axi} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins interrupt_controller/s_axi]
+apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/zynq_ultra_ps_e_0/M_AXI_HPM0_FPD} Slave {/interrupt_controller/s_axi} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins interrupt_controller/s_axi]
 endgroup
 #AXI4-Master
-apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/axi_dma_samples/M_AXI_MM2S} Slave {/processing_system7/S_AXI_HP0} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins processing_system7/S_AXI_HP0]
+apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/axi_dma_samples/M_AXI_MM2S} Slave {/zynq_ultra_ps_e_0/S_AXI_HPC0_FPD} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}  [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HPC0_FPD]
 startgroup
-apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {/processing_system7/FCLK_CLK0 (100 MHz)} Clk_xbar {/processing_system7/FCLK_CLK0 (100 MHz)} Master {/axi_dma_ctrl/M_AXI_MM2S} Slave {/processing_system7/S_AXI_HP0} ddr_seg {Auto} intc_ip {/axi_mem_intercon} master_apm {0}}  [get_bd_intf_pins axi_dma_ctrl/M_AXI_MM2S]
+apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {/zynq_ultra_ps_e_0/pl_clk0 (100 MHz)} Clk_xbar {/zynq_ultra_ps_e_0/pl_clk0 (100 MHz)} Master {/axi_dma_ctrl/M_AXI_MM2S} Slave {/zynq_ultra_ps_e_0/S_AXI_HPC0_FPD} ddr_seg {Auto} intc_ip {/axi_mem_intercon} master_apm {0}}  [get_bd_intf_pins axi_dma_ctrl/M_AXI_MM2S]
 for {set i 0} {$i < $n_classes} {incr i} {
-   apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {/processing_system7/FCLK_CLK0 (100 MHz)} Clk_xbar {/processing_system7/FCLK_CLK0 (100 MHz)} Master {/axi_dma_cl0/M_AXI_S2MM} Slave {/processing_system7/S_AXI_HP0} ddr_seg {Auto} intc_ip {/axi_mem_intercon} master_apm {0}}  [get_bd_intf_pins axi_dma_cl${i}/M_AXI_S2MM]
+   apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {/zynq_ultra_ps_e_0/pl_clk0 (100 MHz)} Clk_xbar {/zynq_ultra_ps_e_0/pl_clk0 (100 MHz)} Master {/axi_dma_cl0/M_AXI_S2MM} Slave {/zynq_ultra_ps_e_0/S_AXI_HPC0_FPD} ddr_seg {Auto} intc_ip {/axi_mem_intercon} master_apm {0}}  [get_bd_intf_pins axi_dma_cl${i}/M_AXI_S2MM]
 }
 endgroup
+
 #Clocks
+#TODO: add back also Zynq-7000
+# startgroup
+# apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_broadcaster_ctrl/aclk]
+# apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_broadcaster_samples/aclk]
+# for {set i 0} {$i < $n_banks} {incr i} {
+#    apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_broadcaster_bank_${i}/aclk]
+# }
+# for {set i 0} {$i < $n_classes} {incr i} {
+#    apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_dwidth_converter_${i}/aclk]
+# }
+# for {set i 0} {$i < $n_banks} {incr i} {
+#    apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_${i}/ACLK]
+#    apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_${i}/M00_AXIS_ACLK]
+#    for {set j 0} {$j < $n_trees_per_bank} {incr j} {
+#       apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_${i}/[format "S%02d" $j]_AXIS_ACLK]
+#    }
+# }
+# apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_x/ACLK]
+# for {set i 0} {$i < $n_classes} {incr i} {
+#    apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_x/[format "M%02d" $i]_AXIS_ACLK]
+# }
+# for {set i 0} {$i < $n_banks} {incr i} {
+#    for {set j 0} {$j < $n_trees_per_bank} {incr j} {
+#       apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins tree_${i}_${j}/ap_clk]
+#    }
+# }
+# endgroup
 startgroup
-apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_broadcaster_ctrl/aclk]
-apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_broadcaster_samples/aclk]
+apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/zynq_ultra_ps_e_0/pl_clk0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_broadcaster_ctrl/aclk]
+apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/zynq_ultra_ps_e_0/pl_clk0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_broadcaster_samples/aclk]
 for {set i 0} {$i < $n_banks} {incr i} {
-   apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_broadcaster_bank_${i}/aclk]
+   apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/zynq_ultra_ps_e_0/pl_clk0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_broadcaster_bank_${i}/aclk]
 }
 for {set i 0} {$i < $n_classes} {incr i} {
-   apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_dwidth_converter_${i}/aclk]
+   apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/zynq_ultra_ps_e_0/pl_clk0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_dwidth_converter_${i}/aclk]
 }
 for {set i 0} {$i < $n_banks} {incr i} {
-   apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_${i}/ACLK]
-   apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_${i}/M00_AXIS_ACLK]
+   apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/zynq_ultra_ps_e_0/pl_clk0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_${i}/ACLK]
+   apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/zynq_ultra_ps_e_0/pl_clk0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_${i}/M00_AXIS_ACLK]
    for {set j 0} {$j < $n_trees_per_bank} {incr j} {
-      apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_${i}/[format "S%02d" $j]_AXIS_ACLK]
+      apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/zynq_ultra_ps_e_0/pl_clk0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_${i}/[format "S%02d" $j]_AXIS_ACLK]
    }
 }
-apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_x/ACLK]
+apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/zynq_ultra_ps_e_0/pl_clk0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_x/ACLK]
 for {set i 0} {$i < $n_classes} {incr i} {
-   apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_x/[format "M%02d" $i]_AXIS_ACLK]
+   apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/zynq_ultra_ps_e_0/pl_clk0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins axis_interconnect_x/[format "M%02d" $i]_AXIS_ACLK]
 }
 for {set i 0} {$i < $n_banks} {incr i} {
    for {set j 0} {$j < $n_trees_per_bank} {incr j} {
-      apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}  [get_bd_pins tree_${i}_${j}/ap_clk]
+		connect_bd_net [get_bd_pins tree_rp_${i}_${j}/ap_clk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0]
    }
 }
 endgroup
