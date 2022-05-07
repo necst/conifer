@@ -28,9 +28,23 @@ launch_runs top_system_* -jobs ${n_jobs}
 
 # DFX wizard: set configurations and configuration runs
 # TODO: use jinja in order to generate configurations for every conmbination of n_bank n_trees_per_bank n_classes n_trees_per_class
-create_pr_configuration -name config_1 -partitions [list top_system_i/tree_rp_0_0:tree_rm_0_0_inst_0 top_system_i/tree_rp_0_1:tree_rm_0_1_inst_0 top_system_i/tree_rp_0_2:tree_rm_0_2_inst_0 top_system_i/tree_rp_1_0:tree_rm_0_3_inst_0 top_system_i/tree_rp_1_1:tree_rm_0_4_inst_0 top_system_i/tree_rp_1_2:tree_rm_0_5_inst_0 ]
-create_pr_configuration -name config_2 -partitions [list top_system_i/tree_rp_0_0:tree_rm_1_0_inst_0 top_system_i/tree_rp_0_1:tree_rm_1_1_inst_0 top_system_i/tree_rp_0_2:tree_rm_1_2_inst_0 top_system_i/tree_rp_1_0:tree_rm_1_3_inst_0 top_system_i/tree_rp_1_1:tree_rm_1_4_inst_0 top_system_i/tree_rp_1_2:tree_rm_1_5_inst_0 ]
-create_pr_configuration -name config_3 -partitions [list top_system_i/tree_rp_0_0:tree_rm_2_0_inst_0 top_system_i/tree_rp_0_1:tree_rm_2_1_inst_0 top_system_i/tree_rp_0_2:tree_rm_2_2_inst_0 top_system_i/tree_rp_1_0:tree_rm_2_3_inst_0 top_system_i/tree_rp_1_1:tree_rm_2_4_inst_0 top_system_i/tree_rp_1_2:tree_rm_2_5_inst_0 ]
+{%- set ns=namespace() %}
+{%- set ns.config = 0 %}
+{%- set ns.counter = 0 %}
+{%- for i in iter %}
+    {%- if ns.counter==0 %}
+        {%- set ns.newline='create_pr_configuration -name config_%d -partitions [list '|format( ns.config + 1 )%}
+    {%- endif %}
+            {%- set ns.newline='%stop_system_i/%s:%s_inst_0 '|format(ns.newline,set_properties[ns.counter]['rp'],set_properties[ns.counter]['rm'][ns.config])%}
+    {%- if ns.counter==n_trees-1 %}
+        {%- set ns.newline='%s]'|format(ns.newline)%}
+{{ns.newline}}
+        {%- set ns.config = ns.config + 1%}
+        {%- set ns.counter=0%}
+    {%- else %}
+        {%- set ns.counter = ns.counter + 1 %}
+    {%- endif %}
+{%- endfor %}
 set_property PR_CONFIGURATION config_1 [get_runs impl_1]
 create_run child_0_impl_1 -parent_run impl_1 -flow {Vivado Implementation 2021} -pr_config config_2
 create_run child_1_impl_1 -parent_run impl_1 -flow {Vivado Implementation 2021} -pr_config config_3

@@ -335,7 +335,7 @@ def write(ensemble_dict, cfg):
 
         for i in range(n_classes):
             for j in range(n_trees_per_class):
-                list[counter].append("tree_rm_{}_{}.bd".format(i,j))
+                list[counter].append("tree_rm_{}_{}".format(i,j))
                 if counter == (n_trees_per_bank * n_banks) - 1:
                     counter = 0
                 else:
@@ -344,7 +344,8 @@ def write(ensemble_dict, cfg):
         set_properties=[]
         for i in range(n_banks):
             for j in range(n_trees_per_bank):
-                    set_properties.append({ "rp": "tree_rp_{}_{}".format(i,j), "rm": list[counter]  })
+                    rp="tree_rp_{}_{}".format(i,j)
+                    set_properties.append({ "rp": rp , "rm": list[counter]  })
                     counter+=1
 
         template.stream(
@@ -422,6 +423,26 @@ def write(ensemble_dict, cfg):
                 rp_variants=rp_variants 
         ).dump('{}/{}_reconfigurable_system/scripts/design.tcl'.format(cfg['OutputDir'], cfg['ProjectName']) )
 
+    #######################
+    # synth_and_impl.tcl
+    #######################
+        template = env.get_template('system-template/synth_and_impl.tcl.jinja')
+            
+        template.stream(
+                projectname=cfg['ProjectName'],
+                XilinxPart=cfg['XilinxPart'],
+                XilinxBoard=cfg['XilinxBoard'],
+                trees_per_bank=trees_per_bank,
+                tree_ips=tree_ips,
+                tree_ips_bank=tree_ips_bank,
+                tree_ips_config=tree_ips_config,
+                rp_variants=rp_variants,
+                set_properties=set_properties,
+                n_trees=n_trees_per_bank*n_banks,
+                n_config=rp_variants,
+                iter=range(n_trees_per_bank*n_banks*rp_variants)
+        ).dump('{}/{}_reconfigurable_system/synth_and_impl.tcl'.format(cfg['OutputDir'], cfg['ProjectName']) )
+    
     #######################
     # top_system_pblock.tcl
     #######################

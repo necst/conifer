@@ -284,10 +284,10 @@ for {set i 0} {$i < $n_banks} {incr i} {
     {%- set nsss=namespace(count=0)%}
         {%- for rm in set_property.rm%}
             {%- if nsss.count==0%}
-            {%- set nss.rm_newline='%s%s'|format(nss.rm_newline,rm) %}
+            {%- set nss.rm_newline='%s%s.bd'|format(nss.rm_newline,rm) %}
             {%- set nsss.count = nsss.count + 1 %}
             {%- else %}
-            {%- set nss.rm_newline='%s:%s'|format(nss.rm_newline,rm) %}
+            {%- set nss.rm_newline='%s:%s.bd'|format(nss.rm_newline,rm) %}
             {%- endif %}
         {%- endfor%}
     {%- set nss.rm_newline='%s}'|format(nss.rm_newline) %}
