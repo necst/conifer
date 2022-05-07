@@ -440,7 +440,8 @@ def write(ensemble_dict, cfg):
                 set_properties=set_properties,
                 n_trees=n_trees_per_bank*n_banks,
                 n_config=rp_variants,
-                iter=range(n_trees_per_bank*n_banks*rp_variants)
+                iter_cfgs=range(n_trees_per_bank*n_banks*rp_variants),
+                iter_runs=range(int((n_trees_per_class*class_count) / (n_trees_per_bank*n_banks)))
         ).dump('{}/{}_reconfigurable_system/synth_and_impl.tcl'.format(cfg['OutputDir'], cfg['ProjectName']) )
     
     #######################

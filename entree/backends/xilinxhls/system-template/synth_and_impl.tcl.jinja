@@ -1,7 +1,6 @@
 ################################################################
 # COMMAND-LINE ARGUMENTS
 ################################################################
-# TODO: update to jinja 
 set prj_root  [lindex $argv 0]
 set prj_dir [lindex $argv 1]
 set ip_dir [lindex $argv 2]
@@ -27,11 +26,10 @@ launch_runs top_system_* -jobs ${n_jobs}
 
 
 # DFX wizard: set configurations and configuration runs
-# TODO: use jinja in order to generate configurations for every conmbination of n_bank n_trees_per_bank n_classes n_trees_per_class
 {%- set ns=namespace() %}
 {%- set ns.config = 0 %}
 {%- set ns.counter = 0 %}
-{%- for i in iter %}
+{%- for i in iter_cfgs %}
     {%- if ns.counter==0 %}
         {%- set ns.newline='create_pr_configuration -name config_%d -partitions [list '|format( ns.config + 1 )%}
     {%- endif %}
@@ -45,9 +43,17 @@ launch_runs top_system_* -jobs ${n_jobs}
         {%- set ns.counter = ns.counter + 1 %}
     {%- endif %}
 {%- endfor %}
-set_property PR_CONFIGURATION config_1 [get_runs impl_1]
-create_run child_0_impl_1 -parent_run impl_1 -flow {Vivado Implementation 2021} -pr_config config_2
-create_run child_1_impl_1 -parent_run impl_1 -flow {Vivado Implementation 2021} -pr_config config_3
+
+{%- set ns.counter = 0 %}
+{%- for i in iter_runs %}
+    {%- if ns.counter==0 %}
+        {%- set ns.newline='set_property PR_CONFIGURATION config_1 [get_runs impl_1]'%}
+    {%- else %}
+        {%- set ns.newline='create_run child_%d_impl_1 -parent_run impl_1 -flow {Vivado Implementation 2021} -pr_config config_%d'|format(ns.counter - 1, ns.counter + 1)%}
+    {%- endif %}
+    {%- set ns.counter = ns.counter + 1 %}
+{{ns.newline}}
+{%- endfor %}
 
 # launch synthesis
 launch_runs synth_1 -jobs 12
