@@ -4,18 +4,24 @@
 set prj_root  [lindex $argv 0]
 set prj_dir [lindex $argv 1]
 set ip_dir [lindex $argv 2]
+set xdc_dir [lindex $argv 3]
 set prj_name {{projectname}}_system
 set prj_part {{XilinxPart}}
 set prj_board {{XilinxBoard}}
 set sample_length {{num1}}
 set n_classes {{class_count}}
-set n_trees_per_class {{TreesPerClass}}
+set n_trees_per_class {{trees_per_class}}
 set result_lenght {{num2}}
 set output_length {{num3}}
 set n_banks {{bank_count}}
-set n_trees_per_bank {{TreesPerBank}}
+set n_trees_per_bank {{trees_per_bank}}
 set id_length {{num4}}
-# TODO: add n_jobs variable
+# TODO: add n_jobs variable in the writer
+set n_jobs 12
+
+open_project ${prj_dir}/${prj_root}.xpr
+update_compile_order -fileset sources_1
+open_bd_design ${prj_dir}/${prj_root}.srcs/sources_1/bd/top_system/top_system.bd
 
 
 # generate output products for every element in the design
@@ -56,32 +62,18 @@ launch_runs top_system_* -jobs ${n_jobs}
 {%- endfor %}
 
 # launch synthesis
-launch_runs synth_1 -jobs 12
+launch_runs synth_1 -jobs ${n_jobs}
 wait_on_run synth_1
 
-
-
-# TODO: try to find out how to use cnstraint files instead of tcl commands to do floorplanning
+# open synthesized design and add constraint
 open_run synth_1 -name synth_1 -pr_config [current_pr_configuration]
+add_files -fileset constrs_1 -norecurse ${xdc_dir}/${prj_part}.xdc
+import_files -fileset constrs_1 ${xdc_dir}/${prj_part}.xdc
+create_ip_run [get_files -of_objects [get_fileset sources_1] ${prj_dir}/${prj_root}.srcs/sources_1/bd/top_system/top_system.bd]
+refresh_design
 
-startgroup
-create_pblock pblock_tree_rp_0_0
-resize_pblock pblock_tree_rp_0_0 -add SLICE_X5Y60:SLICE_X8Y119
-add_cells_to_pblock pblock_tree_rp_0_0 [get_cells [list top_system_i/tree_rp_0_0]] -clear_locs
-endgroup
-startgroup
-create_pblock pblock_tree_rp_0_1
-resize_pblock pblock_tree_rp_0_1 -add SLICE_X9Y60:SLICE_X12Y119
-add_cells_to_pblock pblock_tree_rp_0_1 [get_cells [list top_system_i/tree_rp_0_1]] -clear_locs
-endgroup
-startgroup
-create_pblock pblock_tree_rp_0_2
-resize_pblock pblock_tree_rp_0_2 -add SLICE_X22Y60:SLICE_X25Y119
-add_cells_to_pblock pblock_tree_rp_0_2 [get_cells [list top_system_i/tree_rp_0_2]] -clear_locs
-endgroup
+# launch implementation and bitstream write
+reset_run synth_1
+launch_runs impl_1 child_0_impl_1 child_1_impl_1 -to_step write_bitstream -jobs ${n_jobs}
+wait_on_run impl_1 child_0_impl_1 child_1_impl_1
 
-file mkdir /home/users/matteo.santelmo/Desktop/TEST/TEST_entree_2/iris_PDR_Vivado_GB_system/iris_PDR_Vivado_GB_system.srcs/constrs_1/new
-close [ open /home/users/matteo.santelmo/Desktop/TEST/TEST_entree_2/iris_PDR_Vivado_GB_system/iris_PDR_Vivado_GB_system.srcs/constrs_1/new/pblocks.xdc w ]
-add_files -fileset constrs_1 /home/users/matteo.santelmo/Desktop/TEST/TEST_entree_2/iris_PDR_Vivado_GB_system/iris_PDR_Vivado_GB_system.srcs/constrs_1/new/pblocks.xdc
-set_property target_constrs_file /home/users/matteo.santelmo/Desktop/TEST/TEST_entree_2/iris_PDR_Vivado_GB_system/iris_PDR_Vivado_GB_system.srcs/constrs_1/new/pblocks.xdc [current_fileset -constrset]
-save_constraints -force

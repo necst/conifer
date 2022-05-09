@@ -441,7 +441,14 @@ def write(ensemble_dict, cfg):
                 n_trees=n_trees_per_bank*n_banks,
                 n_config=rp_variants,
                 iter_cfgs=range(n_trees_per_bank*n_banks*rp_variants),
-                iter_runs=range(int((n_trees_per_class*class_count) / (n_trees_per_bank*n_banks)))
+                iter_runs=range(int((n_trees_per_class*class_count) / (n_trees_per_bank*n_banks))),
+                trees_per_class=int(cfg['TreesPerClass']),
+                bank_count=bank_count,
+                class_count=class_count,
+                num1=int((2**math.ceil(math.log(precision, 2)))*ensemble_dict['n_features']),
+                num2=int(8*math.ceil(precision)/8),
+                num3=int(2**math.ceil(math.log(8*(math.ceil(precision)/8), 2))),
+                num4=int(math.ceil(math.log(int(max_parallel_samples), 2))+1)
         ).dump('{}/{}_reconfigurable_system/synth_and_impl.tcl'.format(cfg['OutputDir'], cfg['ProjectName']) )
     
     #######################
