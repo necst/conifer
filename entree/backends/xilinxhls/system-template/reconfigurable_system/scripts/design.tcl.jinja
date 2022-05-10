@@ -87,8 +87,9 @@ add_module $variant
 set_attribute module $variant moduleName   $module_{{ns.curr_bank}}_{{ns.curr_tree_in_bank}}
 set_attribute module $variant prj          $prjDir/$variant.prj
 set_attribute module $variant xdc          $ipDir/$variant/constraints/TOP_FUNCTION_ooc.xdc
-set_attribute module $variant synth        ${run.rmSynth}{{'\n'}}
-{%- set ns.curr_variant = ns.curr_variant + 1 %}
+set_attribute module $variant synth        ${run.rmSynth}
+
+{% set ns.curr_variant = ns.curr_variant + 1 %}
    {%- if (ns.curr_variant >= rp_variants) %}
        {%- set ns.curr_variant = 0 %}
        {%- set ns.curr_tree_in_bank = ns.curr_tree_in_bank + 1 %}
@@ -98,8 +99,8 @@ set_attribute module $variant synth        ${run.rmSynth}{{'\n'}}
        {%- endif %}
    {%- endif %}
 {%- endfor %}
-{{'\n'}}
-{%- for tree_ip_bank in tree_ips_bank %}
+
+{% for tree_ip_bank in tree_ips_bank %}
 set module_{{tree_ip_bank.ibank}}_{{tree_ip_bank.itree}}_inst "top_system_i/tree_{{tree_ip_bank.ibank}}_{{tree_ip_bank.itree}}/inst/tree_bb"
 {%- endfor %}
 
@@ -111,7 +112,8 @@ set module_{{tree_ip_bank.ibank}}_{{tree_ip_bank.itree}}_inst "top_system_i/tree
 
 {%- for tree_ip_config in tree_ips_config %}
 
-set config "Config_{{tree_ip_config.iconfig}}" {{'\n'}}
+set config "Config_{{tree_ip_config.iconfig}}"
+
 add_implementation $config
 set_attribute impl $config top             $top
 set_attribute impl $config pr.impl         1

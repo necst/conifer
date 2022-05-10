@@ -53,8 +53,8 @@
     #pragma HLS INTERFACE ap_ctrl_none port=return
 {{ "    static BDT::Bank_buffer<input_arr_s_t, bank_command_s_t, max_parallel_samples, bank_count> bb(%d);"|format(ibank) }}
     bb.top_function(input_stream, output_stream, command_stream);}
-    {{ "\n" }}
-    {%- endfor %}
+    
+    {% endfor %}
 
 {#- TREE IPs #}
     {%- for tree_ip in tree_ips %}
@@ -72,8 +72,8 @@
     output.id = input.id;
     {{"output.dest = %d;"|format(tree_ip.iclass) }}
     output_stream << output;}
-    {{"\n"}}
-    {%- endfor %}      
+
+    {% endfor %}      
 
 {#- IDLE TREE IP #}
 {{"void %s__tree_idle(hls::stream<input_arr_s_t> &input_stream, hls::stream<tree_score_s_t> &output_stream){"|format(projectname) }}
@@ -109,7 +109,7 @@
     #pragma HLS INTERFACE ap_ctrl_none port=return
 {{"    static BDT::Voting_station<n_classes, tree_score_s_t, class_score_s_t, score_t, max_parallel_samples> vs(%d, bdt.init_predict[%d], bdt.normalisation);"|format(iclass,iclass) }}
 {{"    vs.top_function(input_score_stream, output_score_stream);}" }}
-    {{"\n"}}
-    {%- endfor %}
+
+    {% endfor %}
             
 {%- endif %}
