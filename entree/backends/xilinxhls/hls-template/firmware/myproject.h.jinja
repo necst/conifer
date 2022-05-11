@@ -1,4 +1,5 @@
-{{ "#ifndef %s_H__\n#define %s_H__\n"|format(projectname|upper, projectname|upper ) }}
+#ifndef {{projectname|upper}}_H__
+#define {{projectname|upper}}_H__
 #include "BDT.h"
 #include "parameters.h"
 {%- if cfg_get %}
@@ -8,31 +9,31 @@
 
 {%- if not cfg_get %}
 {#- Monolithic IP #}
-{{ "void %s(input_t *x, score_t *score/*, score_t tree_scores[BDT::fn_classes(n_classes) * n_trees]*/);"|format(projectname) }}
+void {{projectname}}(input_t *x, score_t *score/*, score_t tree_scores[BDT::fn_classes(n_classes) * n_trees]*/);
 {%- else %}
 {#- Reconfigurable set of IPs #}
         
 {#- ENUMERTOR #}
-{{ "void %s__enumerator(hls::stream<idless_input_arr_s_t> &input_stream, hls::stream<input_arr_s_t> &output_stream);"|format(projectname) }}
+void {{projectname}}__enumerator(hls::stream<idless_input_arr_s_t> &input_stream, hls::stream<input_arr_s_t> &output_stream);
 
 {#- BANK BUFFER IP #}
     {%- for ibank in range_bank_count %}
-{{ "void %s__bank_buffer_%d(hls::stream<input_arr_s_t> &input_stream, hls::stream<input_arr_s_t> &output_stream, hls::stream<bank_command_s_t> &command_stream);"|format(projectname, ibank) }}
+void {{projectname}}__bank_buffer_{{ibank}}(hls::stream<input_arr_s_t> &input_stream, hls::stream<input_arr_s_t> &output_stream, hls::stream<bank_command_s_t> &command_stream);
     {%- endfor %}
 {#- TREE IPs #}
     {%- for tree_ip in tree_ips %}
-{{ "void %s__tree_cl%d_%d(hls::stream<input_arr_s_t> &input_stream, hls::stream<tree_score_s_t> &output_stream);"|format(projectname, tree_ip.iclass, tree_ip.itree) }}
+void {{projectname}}__tree_cl{{tree_ip.iclass}}_{{tree_ip.itree}}(hls::stream<input_arr_s_t> &input_stream, hls::stream<tree_score_s_t> &output_stream);
     {%- endfor %}
 
 {#- IDLE TREE IP #}
-{{ "void %s__tree_idle(hls::stream<input_arr_s_t> &input_stream, hls::stream<tree_score_s_t> &output_stream);"|format(projectname) }}
+void {{projectname}}__tree_idle(hls::stream<input_arr_s_t> &input_stream, hls::stream<tree_score_s_t> &output_stream);
 
 {#- VOTE BUFFER IP #}
-{{ "void %s__vote_buffer(hls::stream<tree_score_s_t> &input_stream, hls::stream<tree_score_s_t> &output_stream, bool &irq);"|format(projectname) }}
+void {{projectname}}__vote_buffer(hls::stream<tree_score_s_t> &input_stream, hls::stream<tree_score_s_t> &output_stream, bool &irq);
 
 {#- VOTING STATION IPs #}
         {%- for iclass in range_class_count %}
-{{ "void %s__voting_station_cl%d(hls::stream<tree_score_s_t>  &input_score_stream, hls::stream<class_score_s_t> &output_score_stream);"|format(projectname, iclass) }}
+void {{projectname}}__voting_station_cl{{iclass}}(hls::stream<tree_score_s_t>  &input_score_stream, hls::stream<class_score_s_t> &output_score_stream);
         {%- endfor %}
 {%- endif %}
 
