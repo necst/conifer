@@ -17,6 +17,7 @@
 # (https://github.com/thesps/conifer)
 
 import os
+import shutil
 import sys
 from shutil import copyfile
 import numpy as np
@@ -317,6 +318,14 @@ def write(ensemble_dict, cfg):
     #######################
     # build_system_bd.tcl
     #######################
+    print('  -> Ensemble dict:')
+    print(len(ensemble_dict['trees'][0]))
+    print(len(ensemble_dict['trees'][1]))
+    print(len(ensemble_dict['trees'][2]))
+    print(len(ensemble_dict['trees'][3]))
+    print(len(ensemble_dict['trees'][4]))
+    print(len(ensemble_dict['trees'][5]))
+
 
     if cfg.get('PDR', False) == True:
 
@@ -327,7 +336,8 @@ def write(ensemble_dict, cfg):
         # Set tree_rp and tree_rm
         n_banks = int(cfg['Banks'])
         n_trees_per_bank = int(cfg['TreesPerBank'])
-        n_classes = int(ensemble_dict['n_classes'],)
+        n_classes = int(ensemble_dict['n_classes'])
+        #n_trees = int(ensemble_dict['n_trees'])
         n_trees_per_class = int(cfg['TreesPerClass'])
 
         list = [[] for i in range(n_banks*n_trees_per_bank)]
@@ -438,7 +448,6 @@ def write(ensemble_dict, cfg):
                 tree_ips_config=tree_ips_config,
                 rp_variants=rp_variants,
                 set_properties=set_properties,
-                n_trees=n_trees_per_bank*n_banks,
                 n_config=rp_variants,
                 iter_cfgs=range(n_trees_per_bank*n_banks*rp_variants),
                 iter_runs=range(int((n_trees_per_class*class_count) / (n_trees_per_bank*n_banks))),
@@ -530,7 +539,6 @@ def sim_compile(config):
 def build(config, reset=False, csim=False, synth=True, cosim=False, export=False):
     cwd = os.getcwd()
     os.chdir(config['OutputDir'])
-
     hls_tool = get_hls()
     if hls_tool == None:
         print("No HLS in PATH. Did you source the appropriate Xilinx Toolchain?")
@@ -548,14 +556,6 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
         sys.exit(-6)
 
     if config.get('PDR', False) == True:
-        # Create Tree Wrapper Project
-        cmd = 'vivado -nojournal -nolog -mode batch -source build_tree_wrapper.tcl -tclargs {prj} $(pwd)/{prj} $(pwd)/{hls}'.format(prj=config['ProjectName']+'_tree_wrapper', hls=config['ProjectName']+'_prj')
-        print(cmd)
-        success = os.system(cmd)
-        if(success > 0):
-            print("'build' failed")
-            sys.exit(-7)
-
         # Create System Project
         cmd = 'vivado -nojournal -nolog -mode batch -source build_system_bd.tcl -tclargs {prj} $(pwd)/{prj} $(pwd)/{hls}'.format(prj=config['ProjectName']+'_system', hls=config['ProjectName']+'_prj')
         print(cmd)
@@ -563,71 +563,37 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
         if(success > 0):
             print("'build' failed")
             sys.exit(-8)
-
-        # Enabling Black-Box Synthesis
-        for file in glob.glob('./{}/**/synth/tree_wrapper_tree_*.v'.format(config['ProjectName']+'_system'), recursive=True):
-            print(file)
-
-            local_name = os.path.basename(os.path.dirname(os.path.dirname(file)))
-            global_name = os.path.basename(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(file))))) + '_' + local_name
-
-            with open(file, 'r') as original_file:
-                with open('./{}/srcs/hdl/{}.v'.format(config['ProjectName']+'_reconfigurable_system', global_name), 'w') as dest_file:
-                    for line in original_file.readlines():
-                        if not ('(* black_box="true" *)' in line):
-                            line = line.replace(local_name, global_name)
-                            dest_file.write(line)
-
-            os.rename(file, file+'.bak')
-            f = open(file+'.bak', 'r')
-            fout = open(file, 'w')
-            for line in f.readlines():
-                    if line.startswith('module tree_'):
-                            line = '(* black_box="true" *)\n' + line
-                    
-                    fout.write(line)
-            f.close()
-            fout.close()
-            
-        cmd = 'vivado -nojournal -nolog -mode batch -source synth_static_shell.tcl -tclargs $(pwd)/{prj}'.format(prj=config['ProjectName']+'_system')
+        
+        # Create configurations and runs synthesis, implementation and write bitstreams
+        cmd = 'vivado -nojournal -nolog -mode batch -source synth_and_impl.tcl -tclargs $(pwd)/{prj}'.format(prj=config['ProjectName']+'_system')
         print(cmd)
         success = os.system(cmd)
         if(success > 0):
-            print("'static shell's synth failed")
+            print("synthesis or implementation failed")
             sys.exit(-9)
 
-        # Prepare source files for reconfiguration
-        print("START PREPARING FOR RECONFIG...")
+        # Set destination folder and move there bitstreams and .hwh files
+        current = os.getcwd()
+        os.mkdir('{}/exports'.format(current))
+        destination = '{}/exports'.format(current)
+        source = '{}/{}_system/{}_system.runs'.format(current,config['ProjectName'],config['ProjectName'],config['ProjectName'])
+        #list = []
 
-        # Gathering Static Shell dcp
-        copyfile('./{}/static_shell.dcp'.format(config['ProjectName']+'_system'), 
-        './{}/srcs/dcp/static_shell.dcp'.format(config['ProjectName']+'_reconfigurable_system'))
-        
-        # Extracting RM IPs
-        ip_srcs = './{}/srcs/ip'.format(config['ProjectName']+'_reconfigurable_system')
-
-        for ip_archive in glob.iglob('./{}/tree_*/impl/export.zip'.format(config['ProjectName']+'_prj')):
-            ip_name = os.path.basename(os.path.dirname(os.path.dirname(ip_archive)))
-            with zipfile.ZipFile(ip_archive, 'r') as zip_ref:
-                zip_ref.extractall(path=ip_srcs + '/' + ip_name)
-
-        # Generating IP PRJs
-        prevOutDir = os.getcwd()
-        os.chdir('./{}/'.format(config['ProjectName']+'_reconfigurable_system'))
-        wrapper_sources = glob.glob('./srcs/hdl/*.v')
-        for ip_folder in glob.iglob('./srcs/ip/tree_*'):
-            ip_name = os.path.basename(ip_folder)
-            ip_sources = glob.glob('{}/hdl/verilog/*.v'.format(ip_folder))
-            with open('./srcs/prj/{}.prj'.format(ip_name), 'w') as dest_file:
-                    for line in map(lambda x: 'verilog xil_defaultLib ' + x, ip_sources + wrapper_sources):
-                        dest_file.write(line + '\n')
-
-        cmd = 'vivado -nojournal -nolog -mode batch -source scripts/design.tcl'
-        print(cmd)
-        success = os.system(cmd)
-        if(success > 0):
-            print("'reconfig synth failed")
-            sys.exit(-10)
-
-        os.chdir(prevOutDir)
+        # move .bit files to the destination folder 
+        for i in os.listdir(source):
+            if ('impl_1' in i) or ('child_' in i):
+                for j in os.listdir('{}/{}'.format(source,i)):
+                    if '.bit' in j:
+                        shutil.copyfile('{}/{}/{}'.format(source,i,j), '{}/{}'.format(destination,j))
+                        # list.append('{}/{}/{}'.format(source,i,j))
+   
+        source = '{}/{}_system/{}_system.gen/sources_1/bd/top_system/bd'.format(current,prj_name,prj_name,prj_name)
+        for i in os.listdir(source):
+            if 'tree_rm' in i:
+                for j in os.listdir('{}/{}/hw_handoff'.format(source,i)):
+                    if '.hwh' in j:
+                        for h in os.listdir(destination):
+                            if j.strip('.hwh') in h and '.bit' in h:
+                                h = h.replace('.bit','')
+                                shutil.copyfile('{}/{}/hw_handoff/{}'.format(source,i,j), '{}/{}.hwh'.format(destination,h))
     os.chdir(cwd)

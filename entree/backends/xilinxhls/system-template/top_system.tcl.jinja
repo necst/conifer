@@ -56,7 +56,8 @@ set prj_part {{XilinxPart}}
 set prj_board {{XilinxBoard}}
 set sample_length {{num1}}
 set n_classes {{class_count}}
-set n_trees_per_class {{TreesPerClass}}
+# set n_trees_per_class {{TreesPerClass}}
+set n_trees {{nTrees}}
 set result_lenght {{num2}}
 set output_length {{num3}}
 set n_banks {{bank_count}}
@@ -126,23 +127,24 @@ if { $parentObj == "" } {
 set oldCurInst [current_bd_instance .]
 
 # Create reconfigurable modules as block design containing single tree IPs
-for {set i 0} {$i < $n_classes} {incr i} {
-    for {set j 0} {$j < $n_trees_per_class} {incr j} {
-		create_bd_design tree_rm_${i}_${j}
-		create_bd_cell -type ip -vlnv xilinx.com:{{projectname}}:tree_cl${i}_${j}:1.0 tree_cl${i}_${j}_0
-		startgroup
-		make_bd_intf_pins_external  [get_bd_intf_pins tree_cl${i}_${j}_0/input_stream]
-		make_bd_pins_external  [get_bd_pins tree_cl${i}_${j}_0/ap_clk]
-		make_bd_pins_external  [get_bd_pins tree_cl${i}_${j}_0/ap_rst_n]
-		make_bd_intf_pins_external  [get_bd_intf_pins tree_cl${i}_${j}_0/output_stream]
-		endgroup
-		set_property name input_stream [get_bd_intf_ports input_stream_0]
-		set_property name ap_clk [get_bd_ports ap_clk_0]
-		set_property name ap_rst_n [get_bd_ports ap_rst_n_0]
-		set_property name output_stream [get_bd_intf_ports output_stream_0]
-		validate_bd_design
-		save_bd_design
-	}
+# jclass and jtree variables iterates class and tree in class in order to use all the tree_clX_Y IPs
+set jclass 0
+set jtree 0
+for {set i 0} {$i < $n_trees} {incr i} {
+   create_bd_design tree_rm_${i}
+   create_bd_cell -type ip -vlnv xilinx.com:{{projectname}}:tree_cl${i}_${j}:1.0 tree_cl${i}_${j}_0
+   startgroup
+   make_bd_intf_pins_external  [get_bd_intf_pins tree_cl${i}_${j}_0/input_stream]
+   make_bd_pins_external  [get_bd_pins tree_cl${i}_${j}_0/ap_clk]
+   make_bd_pins_external  [get_bd_pins tree_cl${i}_${j}_0/ap_rst_n]
+   make_bd_intf_pins_external  [get_bd_intf_pins tree_cl${i}_${j}_0/output_stream]
+   endgroup
+   set_property name input_stream [get_bd_intf_ports input_stream_0]
+   set_property name ap_clk [get_bd_ports ap_clk_0]
+   set_property name ap_rst_n [get_bd_ports ap_rst_n_0]
+   set_property name output_stream [get_bd_intf_ports output_stream_0]
+   validate_bd_design
+   save_bd_design
 }
 
 current_bd_design $design_name
