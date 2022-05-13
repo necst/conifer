@@ -300,22 +300,6 @@ def write(ensemble_dict, cfg):
         ).dump('{}/build_pdr_ips/enumerator.tcl'.format(cfg['OutputDir']))
 
     #######################
-    # build_tree_wrapper.tcl
-    #######################
-
-    if cfg.get('PDR', False) == True:
-
-        template = env.get_template('system-template/tree_wrapper.tcl.jinja')
-
-        template.stream(
-                projectname=cfg['ProjectName'],
-                XilinxPart=cfg['XilinxPart'],
-                XilinxBoard=cfg['XilinxBoard']
-        ).dump('{}/build_tree_wrapper.tcl'.format(cfg['OutputDir']))
-        
-
-
-    #######################
     # build_system_bd.tcl
     #######################
     print('  -> Ensemble dict:')
@@ -374,65 +358,6 @@ def write(ensemble_dict, cfg):
                 num4=int(math.ceil(math.log(int(max_parallel_samples), 2))+1)
         ).dump('{}/build_system_bd.tcl'.format(cfg['OutputDir']))
         
-
-
-    #######################
-    # build_tree_wrapper.tcl
-    #######################
-
-    if cfg.get('PDR', False) == True:
-
-        template = env.get_template('system-template/tree_wrapper.tcl.jinja')
-
-        template.stream(
-                projectname=cfg['ProjectName'],
-                XilinxPart=cfg['XilinxPart'],
-                XilinxBoard=cfg['XilinxBoard']
-        ).dump('{}/build_tree_wrapper.tcl'.format(cfg['OutputDir']))
-
-    #######################
-    # synth_static_shell.tcl
-    #######################
-
-    if cfg.get('PDR', False) == True:
-        
-        template = env.get_template('system-template/static_shell.tcl.jinja')
-        
-        template.stream(
-                projectname=cfg['ProjectName']
-        ).dump('{}/synth_static_shell.tcl'.format(cfg['OutputDir']))
-        
-
-    #######################
-    # design.tcl
-    #######################
-    if cfg.get('PDR', False) == True:
-        
-        template = env.get_template('system-template/reconfigurable_system/scripts/design.tcl.jinja')
-        
-        trees_per_bank = int(cfg['TreesPerBank'])
-        rp_variants = math.ceil(tree_count / (trees_per_bank * bank_count))
-
-        tree_ips_bank=[]
-        for ibank in range(bank_count):
-            for itree in range(trees_per_bank):
-                    tree_ips_bank.append({"ibank":ibank,"itree": itree})
-        
-        tree_ips_config=[]
-        for iconfig in range(rp_variants):
-                    tree_ips_config.append({"iconfig":iconfig,"tree_ips":tree_ips_bank})
-
-        template.stream(
-                projectname=cfg['ProjectName'],
-                XilinxPart=cfg['XilinxPart'],
-                XilinxBoard=cfg['XilinxBoard'],
-                trees_per_bank=trees_per_bank,
-                tree_ips=tree_ips,
-                tree_ips_bank=tree_ips_bank,
-                tree_ips_config=tree_ips_config,
-                rp_variants=rp_variants 
-        ).dump('{}/{}_reconfigurable_system/scripts/design.tcl'.format(cfg['OutputDir'], cfg['ProjectName']) )
-
     #######################
     # synth_and_impl.tcl
     #######################
@@ -463,7 +388,7 @@ def write(ensemble_dict, cfg):
     #######################
     # top_system_pblock.tcl
     #######################
-
+    # TODO: fix in order to have as default the pblock configuration tested manually on the Ulrta96
     if cfg.get('PDR', False) == True:
         f = open(os.path.join(filedir, 'system-template/reconfigurable_system/constrs/{}.xdc'.format(cfg['XilinxPart'])), 'r')
         fout = open('{}/{}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(cfg['OutputDir'], cfg['ProjectName']) , 'w')
@@ -492,7 +417,7 @@ def write(ensemble_dict, cfg):
 def auto_config():
     config = {'ProjectName': 'my_prj',
               'OutputDir': 'my-entree-prj',
-              'Precision': 'ap_fixed<18,8>',
+              'Precision': 'ap_fixed<16,8>',
               'XilinxPart': 'xcvu9p-flgb2104-2L-e',
               'ClockPeriod': '5',
               'PDR': False}
@@ -576,18 +501,15 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
         current = os.getcwd()
         os.mkdir('{}/exports'.format(current))
         destination = '{}/exports'.format(current)
-        source = '{}/{}_system/{}_system.runs'.format(current,config['ProjectName'],config['ProjectName'],config['ProjectName'])
-        #list = []
-
         # move .bit files to the destination folder 
+        source = '{}/{}_system/{}_system.runs'.format(current, config['ProjectName'], config['ProjectName'], config['ProjectName'])
         for i in os.listdir(source):
             if ('impl_1' in i) or ('child_' in i):
                 for j in os.listdir('{}/{}'.format(source,i)):
                     if '.bit' in j:
                         shutil.copyfile('{}/{}/{}'.format(source,i,j), '{}/{}'.format(destination,j))
-                        # list.append('{}/{}/{}'.format(source,i,j))
-   
-        source = '{}/{}_system/{}_system.gen/sources_1/bd/top_system/bd'.format(current,prj_name,prj_name,prj_name)
+        # move .hwh files to destination folder, renaming with same names of .bit
+        source = '{}/{}_system/{}_system.gen/sources_1/bd/top_system/bd'.format(current, config['ProjectName'], config['ProjectName'], config['ProjectName'])
         for i in os.listdir(source):
             if 'tree_rm' in i:
                 for j in os.listdir('{}/{}/hw_handoff'.format(source,i)):
@@ -596,4 +518,6 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
                             if j.strip('.hwh') in h and '.bit' in h:
                                 h = h.replace('.bit','')
                                 shutil.copyfile('{}/{}/hw_handoff/{}'.format(source,i,j), '{}/{}.hwh'.format(destination,h))
+        source = '{}/{}_system/{}_system.gen/sources_1/bd/top_system/hw_handoff/top_system.hwh'.format(current, config['ProjectName'], config['ProjectName'], config['ProjectName'])
+        shutil.copyfile(source, '{}/top_system_wrapper.hwh'.format(destination))
     os.chdir(cwd)
