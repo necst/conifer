@@ -302,14 +302,14 @@ def write(ensemble_dict, cfg):
     #######################
     # build_system_bd.tcl
     #######################
-    print('  -> Ensemble dict:')
-    print(len(ensemble_dict['trees'][0]))
-    print(len(ensemble_dict['trees'][1]))
-    print(len(ensemble_dict['trees'][2]))
-    print(len(ensemble_dict['trees'][3]))
-    print(len(ensemble_dict['trees'][4]))
-    print(len(ensemble_dict['trees'][5]))
 
+    trees_in_class = []
+    for itree, trees in enumerate(ensemble_dict['trees']):
+        for iclass, tree in enumerate(trees): 
+            if itree == 0 :
+                trees_in_class.append(1)
+            else:
+                trees_in_class[iclass] += 1
 
     if cfg.get('PDR', False) == True:
 
@@ -321,14 +321,13 @@ def write(ensemble_dict, cfg):
         n_banks = int(cfg['Banks'])
         n_trees_per_bank = int(cfg['TreesPerBank'])
         n_classes = int(ensemble_dict['n_classes'])
-        #n_trees = int(ensemble_dict['n_trees'])
-        n_trees_per_class = int(cfg['TreesPerClass'])
+        n_trees = int(ensemble_dict['n_trees'])
 
         list = [[] for i in range(n_banks*n_trees_per_bank)]
         counter = 0
 
         for i in range(n_classes):
-            for j in range(n_trees_per_class):
+            for j in range(trees_in_class[i]):
                 list[counter].append("tree_rm_{}_{}".format(i,j))
                 if counter == (n_trees_per_bank * n_banks) - 1:
                     counter = 0
@@ -343,46 +342,41 @@ def write(ensemble_dict, cfg):
                     counter+=1
 
         template.stream(
-                projectname=cfg['ProjectName'],
-                XilinxPart=cfg['XilinxPart'],
-                XilinxBoard=cfg['XilinxBoard'],
-                TreesPerBank=int(cfg['TreesPerBank']),
-                TreesPerClass=int(cfg['TreesPerClass']),
-                bank_count=bank_count,
-                class_count=class_count,
-                max_parallel_samples=max_parallel_samples,
-                set_properties=set_properties,
-                num1=int((2**math.ceil(math.log(precision, 2)))*ensemble_dict['n_features']),
-                num2=int(8*math.ceil(precision)/8),
-                num3=int(2**math.ceil(math.log(8*(math.ceil(precision)/8), 2))),
-                num4=int(math.ceil(math.log(int(max_parallel_samples), 2))+1)
+                projectname = cfg['ProjectName'],
+                XilinxPart = cfg['XilinxPart'],
+                XilinxBoard = cfg['XilinxBoard'],
+                TreesPerBank = int(cfg['TreesPerBank']),
+                nBanks = bank_count,
+                nClasses = class_count,
+                TreesInClass = trees_in_class,
+                set_properties = set_properties,
+                SampleLength = int((2**math.ceil(math.log(precision, 2)))*ensemble_dict['n_features']),
+                ResultLength = int(8*math.ceil(precision)/8),
+                OutputLength = int(2**math.ceil(math.log(8*(math.ceil(precision)/8), 2))),
+                IDLength = int(math.ceil(math.log(int(max_parallel_samples), 2))+1)
         ).dump('{}/build_system_bd.tcl'.format(cfg['OutputDir']))
         
     #######################
     # synth_and_impl.tcl
     #######################
         template = env.get_template('system-template/synth_and_impl.tcl.jinja')
-            
+        # TODO: fix undefined variables
         template.stream(
-                projectname=cfg['ProjectName'],
-                XilinxPart=cfg['XilinxPart'],
-                XilinxBoard=cfg['XilinxBoard'],
-                trees_per_bank=trees_per_bank,
-                tree_ips=tree_ips,
-                tree_ips_bank=tree_ips_bank,
-                tree_ips_config=tree_ips_config,
-                rp_variants=rp_variants,
-                set_properties=set_properties,
-                n_config=rp_variants,
-                iter_cfgs=range(n_trees_per_bank*n_banks*rp_variants),
-                iter_runs=range(int((n_trees_per_class*class_count) / (n_trees_per_bank*n_banks))),
-                trees_per_class=int(cfg['TreesPerClass']),
-                bank_count=bank_count,
-                class_count=class_count,
-                num1=int((2**math.ceil(math.log(precision, 2)))*ensemble_dict['n_features']),
-                num2=int(8*math.ceil(precision)/8),
-                num3=int(2**math.ceil(math.log(8*(math.ceil(precision)/8), 2))),
-                num4=int(math.ceil(math.log(int(max_parallel_samples), 2))+1)
+                projectname = cfg['ProjectName'],
+                XilinxPart = cfg['XilinxPart'],
+                XilinxBoard = cfg['XilinxBoard'],
+                trees_per_bank = int(cfg['TreesPerBank']),
+                tree_ips = tree_ips,
+                tree_ips_bank = tree_ips_bank,
+                tree_ips_config = tree_ips_config,
+                rp_variants = rp_variants,
+                set_properties = set_properties,
+                n_config = rp_variants,
+                iter_cfgs = range( n_trees_per_bank * n_banks * rp_variants ),
+                iter_runs = range(int((n_trees_per_class*class_count) / (n_trees_per_bank*n_banks))),
+                trees_per_class = int(cfg['TreesPerClass']),
+                bank_count = bank_count,
+                class_count = class_count,
         ).dump('{}/{}_reconfigurable_system/synth_and_impl.tcl'.format(cfg['OutputDir'], cfg['ProjectName']) )
     
     #######################
@@ -393,7 +387,7 @@ def write(ensemble_dict, cfg):
         f = open(os.path.join(filedir, 'system-template/reconfigurable_system/constrs/{}.xdc'.format(cfg['XilinxPart'])), 'r')
         fout = open('{}/{}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(cfg['OutputDir'], cfg['ProjectName']) , 'w')
 
-        trees_per_bank = int(cfg['TreesPerBank'])
+        n_trees_per_bank = int(cfg['TreesPerBank'])
 
         outputting_bank = False
         outputting_tree = False
@@ -405,7 +399,7 @@ def write(ensemble_dict, cfg):
                 line = ''
             elif '## hls-fpga-machine-learning begin tree ' in line and outputting_bank:
                 i_tree = int(line.replace('## hls-fpga-machine-learning begin tree ', ''))
-                outputting_tree = i_tree < trees_per_bank
+                outputting_tree = i_tree < n_trees_per_bank
                 line = ''
             
             if (outputting_bank and outputting_tree):
@@ -417,7 +411,7 @@ def write(ensemble_dict, cfg):
 def auto_config():
     config = {'ProjectName': 'my_prj',
               'OutputDir': 'my-entree-prj',
-              'Precision': 'ap_fixed<16,8>',
+              'Precision': 'ap_fixed<18,8>',
               'XilinxPart': 'xcvu9p-flgb2104-2L-e',
               'ClockPeriod': '5',
               'PDR': False}
@@ -490,7 +484,8 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
             sys.exit(-8)
         
         # Create configurations and runs synthesis, implementation and write bitstreams
-        cmd = 'vivado -nojournal -nolog -mode batch -source synth_and_impl.tcl -tclargs $(pwd)/{prj}'.format(prj=config['ProjectName']+'_system')
+        # NOTE: the constraint directory has been set as the main folder for now
+        cmd = 'vivado -nojournal -nolog -mode batch -source synth_and_impl.tcl -tclargs {prj} $(pwd)/{prj} $(pwd)'.format(prj=config['ProjectName']+'_system')
         print(cmd)
         success = os.system(cmd)
         if(success > 0):
@@ -520,4 +515,5 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
                                 shutil.copyfile('{}/{}/hw_handoff/{}'.format(source,i,j), '{}/{}.hwh'.format(destination,h))
         source = '{}/{}_system/{}_system.gen/sources_1/bd/top_system/hw_handoff/top_system.hwh'.format(current, config['ProjectName'], config['ProjectName'], config['ProjectName'])
         shutil.copyfile(source, '{}/top_system_wrapper.hwh'.format(destination))
+
     os.chdir(cwd)
