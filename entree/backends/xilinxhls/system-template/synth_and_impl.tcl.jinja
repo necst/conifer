@@ -3,21 +3,14 @@
 ################################################################
 set prj_root  [lindex $argv 0]
 set prj_dir [lindex $argv 1]
-set ip_dir [lindex $argv 2]
-set xdc_dir [lindex $argv 3]
+set xdc_dir [lindex $argv 2]
 set prj_name {{projectname}}_system
 set prj_part {{XilinxPart}}
 set prj_board {{XilinxBoard}}
-set sample_length {{num1}}
-set n_classes {{class_count}}
-set n_trees_per_class {{trees_per_class}}
-set result_lenght {{num2}}
-set output_length {{num3}}
-set n_banks {{bank_count}}
-set n_trees_per_bank {{trees_per_bank}}
-set id_length {{num4}}
-# TODO: add n_jobs variable in the writer
-set n_jobs 12
+set n_classes {{nClasses}}
+set n_banks {{nBanks}}
+set n_trees_per_bank {{TreesPerBank}}
+set n_jobs {{nJobs}}
 
 open_project ${prj_dir}/${prj_root}.xpr
 update_compile_order -fileset sources_1
@@ -53,12 +46,11 @@ launch_runs top_system_* -jobs ${n_jobs}
 {%- set ns.counter = 0 %}
 {%- for i in iter_runs %}
     {%- if ns.counter==0 %}
-        {%- set ns.newline='set_property PR_CONFIGURATION config_1 [get_runs impl_1]'%}
+set_property PR_CONFIGURATION config_1 [get_runs impl_1]
     {%- else %}
-        {%- set ns.newline='create_run child_%d_impl_1 -parent_run impl_1 -flow {Vivado Implementation 2021} -pr_config config_%d'|format(ns.counter - 1, ns.counter + 1)%}
+create_run child_{{ns.counter - 1}}_impl_1 -parent_run impl_1 -flow {Vivado Implementation 2021} -pr_config config_{{ns.counter + 1}}
     {%- endif %}
     {%- set ns.counter = ns.counter + 1 %}
-{{ns.newline}}
 {%- endfor %}
 
 # launch synthesis

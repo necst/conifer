@@ -302,7 +302,8 @@ def write(ensemble_dict, cfg):
     #######################
     # build_system_bd.tcl
     #######################
-
+    
+    # create list that counts for each class the nuber of trees
     trees_in_class = []
     for itree, trees in enumerate(ensemble_dict['trees']):
         for iclass, tree in enumerate(trees): 
@@ -322,6 +323,9 @@ def write(ensemble_dict, cfg):
         n_trees_per_bank = int(cfg['TreesPerBank'])
         n_classes = int(ensemble_dict['n_classes'])
         n_trees = int(ensemble_dict['n_trees'])
+        total_trees = 0
+        for i in range(n_classes):
+            total_trees += trees_in_class[i]     
 
         list = [[] for i in range(n_banks*n_trees_per_bank)]
         counter = 0
@@ -360,50 +364,32 @@ def write(ensemble_dict, cfg):
     # synth_and_impl.tcl
     #######################
         template = env.get_template('system-template/synth_and_impl.tcl.jinja')
-        # TODO: fix undefined variables
+        # NOTE: for how the template is designed, runs are set correctly only when
+        # number of total trees is a multiple of number of tree slots in the architecture.
         template.stream(
                 projectname = cfg['ProjectName'],
                 XilinxPart = cfg['XilinxPart'],
                 XilinxBoard = cfg['XilinxBoard'],
-                trees_per_bank = int(cfg['TreesPerBank']),
-                tree_ips = tree_ips,
-                tree_ips_bank = tree_ips_bank,
-                tree_ips_config = tree_ips_config,
-                rp_variants = rp_variants,
+                TreesPerBank = int(cfg['TreesPerBank']),
                 set_properties = set_properties,
-                n_config = rp_variants,
-                iter_cfgs = range( n_trees_per_bank * n_banks * rp_variants ),
-                iter_runs = range(int((n_trees_per_class*class_count) / (n_trees_per_bank*n_banks))),
-                trees_per_class = int(cfg['TreesPerClass']),
-                bank_count = bank_count,
-                class_count = class_count,
-        ).dump('{}/{}_reconfigurable_system/synth_and_impl.tcl'.format(cfg['OutputDir'], cfg['ProjectName']) )
-    
+                iter_cfgs = range( tree_count ),
+                iter_runs = range(int(total_trees / (n_trees_per_bank*n_banks))),
+                n_trees = n_trees,
+                nBanks = bank_count,
+                nClasses = class_count,
+                nJobs = int(cfg['nJobs'])
+        ).dump('{}/synth_and_impl.tcl'.format(cfg['OutputDir'], cfg['ProjectName']) )
+
     #######################
     # top_system_pblock.tcl
     #######################
-    # TODO: fix in order to have as default the pblock configuration tested manually on the Ulrta96
-    if cfg.get('PDR', False) == True:
+    if cfg.get('autoFloorplanning', False) == True:
         f = open(os.path.join(filedir, 'system-template/reconfigurable_system/constrs/{}.xdc'.format(cfg['XilinxPart'])), 'r')
         fout = open('{}/{}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(cfg['OutputDir'], cfg['ProjectName']) , 'w')
-
-        n_trees_per_bank = int(cfg['TreesPerBank'])
-
-        outputting_bank = False
-        outputting_tree = False
-
+        # TODO: add here what to do with the constraint used for floorplanning! 
+        # TODO: add jinja substitution for future parameters      
         for line in f.readlines():
-            if '## hls-fpga-machine-learning begin bank ' in line:
-                i_bank = int(line.replace('## hls-fpga-machine-learning begin bank ', ''))
-                outputting_bank = i_bank < bank_count
-                line = ''
-            elif '## hls-fpga-machine-learning begin tree ' in line and outputting_bank:
-                i_tree = int(line.replace('## hls-fpga-machine-learning begin tree ', ''))
-                outputting_tree = i_tree < n_trees_per_bank
-                line = ''
-            
-            if (outputting_bank and outputting_tree):
-                fout.write(line)
+            fout.write(line)
         
         f.close()
         fout.close()
@@ -412,9 +398,11 @@ def auto_config():
     config = {'ProjectName': 'my_prj',
               'OutputDir': 'my-entree-prj',
               'Precision': 'ap_fixed<18,8>',
-              'XilinxPart': 'xcvu9p-flgb2104-2L-e',
+              'XilinxPart': 'xczu3eg-sbva484-1-i',
               'ClockPeriod': '5',
-              'PDR': False}
+              'PDR': False,
+              'nJobs': str(os.cpu_count() - 4),
+              'autoFloorplanning': True }
     return config
 
 
@@ -484,8 +472,7 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
             sys.exit(-8)
         
         # Create configurations and runs synthesis, implementation and write bitstreams
-        # NOTE: the constraint directory has been set as the main folder for now
-        cmd = 'vivado -nojournal -nolog -mode batch -source synth_and_impl.tcl -tclargs {prj} $(pwd)/{prj} $(pwd)'.format(prj=config['ProjectName']+'_system')
+        cmd = 'vivado -nojournal -nolog -mode batch -source synth_and_impl.tcl -tclargs {prj} $(pwd)/{prj} $(pwd)/{prjname}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(prj=config['ProjectName']+'_system', prjname=config['ProjectName'])
         print(cmd)
         success = os.system(cmd)
         if(success > 0):
