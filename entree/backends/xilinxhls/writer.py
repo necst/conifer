@@ -397,11 +397,11 @@ def write(ensemble_dict, cfg):
 def auto_config():
     config = {'ProjectName': 'my_prj',
               'OutputDir': 'my-entree-prj',
-              'Precision': 'ap_fixed<18,8>',
+              'Precision': 'ap_fixed<16,8>',
               'XilinxPart': 'xczu3eg-sbva484-1-i',
               'ClockPeriod': '5',
               'PDR': False,
-              'nJobs': str(os.cpu_count() - 4),
+              'nJobs': str(os.cpu_count() - 2),
               'autoFloorplanning': True }
     return config
 
