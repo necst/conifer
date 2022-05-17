@@ -99,6 +99,10 @@ def write(ensemble_dict, cfg):
                     '{}/{}_reconfigurable_system/scripts/tcl/{}'.format(cfg['OutputDir'], cfg['ProjectName'], entry.name)
                 )
 
+    # Default clock:
+    if cfg.get('ClockPeriod', False) == False:
+        cfg['ClockPeriod'] = "5"
+
     # Templates directory:
     env = Environment(loader=FileSystemLoader(filedir))
     
@@ -140,8 +144,7 @@ def write(ensemble_dict, cfg):
         for iclass, tree in enumerate(trees):
             # loop over fields
             for ifield, field in enumerate(tree_fields):
-                map_tree=','.join(map(str, tree[field]))
-                tree_ips_fields.append({"itree": itree, "trees": trees, "iclass": iclass, "tree": tree,"ifield": ifield, "field": field,"map_tree": map_tree})
+                tree_ips_fields.append({"itree": itree, "trees": trees, "iclass": iclass, "tree": tree,"ifield": ifield, "field": field,"map_tree": tree[field]})
     
     max_parallel_samples=6
     
@@ -153,9 +156,7 @@ def write(ensemble_dict, cfg):
         n_features=ensemble_dict['n_features'],
         n_classes=ensemble_dict['n_classes'],
         norm=str(ensemble_dict['norm']),
-        init_predict=str(ensemble_dict['init_predict'][0]),
-        len_init_predict=len(ensemble_dict['init_predict']),
-        enumerate_init_predict=enumerate(ensemble_dict['init_predict']),
+        init_predict=ensemble_dict['init_predict'],
         trees=ensemble_dict['trees'],
         len_tree_fields=len(tree_fields),
         tree_ips=tree_ips_fields,
@@ -208,7 +209,7 @@ def write(ensemble_dict, cfg):
         tree_ips=tree_ips,
         enumerate_tree=enumerate(trees),
         ensemble_trees=enumerate(ensemble_dict['trees']),
-        indent='    '
+        indent=''
     ).dump('{}/{}_test.cpp'.format(cfg['OutputDir'], cfg['ProjectName']))
 
 

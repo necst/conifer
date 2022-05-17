@@ -1,25 +1,26 @@
 #ifndef BDT_PARAMS_H__
-#define BDT_PARAMS_H__ {{"\n"}}
+#define BDT_PARAMS_H__ 
+
 #include "BDT.h"
-#include "ap_fixed.h" {{"\n"}}
-{%- if cfg_get_PDR %}
+#include "ap_fixed.h"
+{% if cfg_get_PDR %}
 #include "utils.h"
 #include "ap_axi_sdata.h"
 
-{{"static const int n_trees = %s;"|format(n_trees) }}
-{{"static const int max_depth = %s;"|format(max_depth) }}
-{{"static const int n_features = %s;"|format(n_features) }}
-{{"static const int n_classes = %s;"|format(n_classes) }}
-{{"typedef %s input_t;"|format(Precision) }}
+static const int n_trees = {{n_trees}};
+static const int max_depth = {{max_depth}};
+static const int n_features = {{n_features}};
+static const int n_classes = {{n_classes}};
+typedef {{Precision}} input_t;
 typedef input_t input_arr_t[n_features];
-{{"typedef %s score_t;"|format(Precision) }}
+typedef {{Precision}} score_t;
 typedef score_t score_arr_t[n_classes];
     {#- TODO score_arr_t #}
-typedef input_t threshold_t; {{"\n"}}
-    {%- if cfg_get_PDR %}
+typedef input_t threshold_t;
+    {% if cfg_get_PDR %}
         {#- TODO: Allow max_parallel_sample configuration #}
-{{"static const int max_parallel_samples = %d;"|format(max_parallel_samples) }}
-{{"static const int bank_count = %d;"|format(bank_count) }}
+static const int max_parallel_samples = {{max_parallel_samples}};
+static const int bank_count = {{bank_count}};
 static const int sample_id_size = bitsizeof(max_parallel_samples);
 static const int bank_address_size = bitsizeof(bank_count + 1);
 typedef hls::axis<ap_uint<8>, 0, 0, bank_address_size> bank_command_s_t;
@@ -31,46 +32,27 @@ typedef hls::axis<score_t, 0, sample_id_size, 0> class_score_s_t;
 
 static const BDT::BDT<n_trees, max_depth, n_classes, input_arr_t, score_t, threshold_t> bdt = 
 { // The struct
-    {{"%s, // The normalisation"|format(norm) }}
-    {%- set newline = namespace(newpath="{") %}
-    {%- if n_classes > 2 %}
-        {%- for iip, ip in enumerate_init_predict %}
-            {%- if iip < len_init_predict - 1 %}
-                {%- set newline.newpath ="%s%1.16f,"|format(newline.newpath,ip|float) %}
-            {%- else %}
-                {%- set newline.newpath ="%s%1.16f}, // The init_predict"|format(newline.newpath,ip|float) %}
-            {%- endif %}
-        {%- endfor %}
-    {%- else %}
-        {%- set newline.newpath = "%s %1.16f},"|format(newline.newpath,init_predict|float)  %}
-    {%- endif %}
-    {{ newline.newpath}}
+    {{norm}}, // The normalisation
+    {
+        {{- init_predict | map('float') | join(",") -}}
+    }, // The init_predict
     { // The array of trees
 
     {%- for tree_ip in tree_ips %}
     {%- if tree_ip.ifield == 0 %}
         {%- if tree_ip.iclass == 0 %}
-        {{"{ // trees[%d]"|format(tree_ip.itree) }}
+        { // trees[{{tree_ip.itree}}]
         {%- endif %}
-            {{"{ // [%d]"|format(tree_ip.iclass) }}
+            { // [{{tree_ip.iclass}}]
     {%- endif %}
-                {%- set newline = "{%s}"|format(tree_ip.map_tree) %}
-                {%- if tree_ip.ifield < len_tree_fields - 1 %}
-                {%- set newline="%s,"|format(newline) %}
-                {%- endif %}
-                {{newline}}
+                {
+                {{- tree_ip.map_tree |join(",") -}}
+                }
+                {%- if tree_ip.ifield < len_tree_fields - 1 -%},{%- endif %}
         {%- if tree_ip.ifield == len_tree_fields - 1 %}
-            {%- set newline_field = "}"%}
-            {%- if tree_ip.iclass < len_trees - 1 %}
-            {%- set newline_field = '%s,'|format(newline_field) %}
-            {%- endif %}
-            {{newline_field}}
+            }{%- if tree_ip.iclass < len_trees - 1 %},{%- endif %}
             {%- if tree_ip.iclass == len_trees - 1 %}
-            {%- set newline_trees = "}"%}
-                {%- if tree_ip.itree < n_trees - 1 %}
-                {%- set newline_trees = '%s,'|format(newline_trees) %}
-                {%- endif %}
-        {{newline_trees}}
+        }{%- if tree_ip.itree < n_trees - 1 %},{%- endif %}
             {%- endif %}
         {%- endif %}
     {%- endfor%}
