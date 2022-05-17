@@ -72,8 +72,7 @@ set_attribute module $static synthCheckpoint $srcDir/dcp/static_shell.dcp
 ####################################################################
 ### RP Module Definitions
 ####################################################################
-{{''}}
-{%- set ns=namespace() %}
+{% set ns=namespace() %}
 {%- set ns.curr_bank = 0 %}
 {%- set ns.curr_tree_in_bank = 0 %}
 {%- set ns.curr_variant = 0 %}
@@ -88,7 +87,6 @@ set_attribute module $variant moduleName   $module_{{ns.curr_bank}}_{{ns.curr_tr
 set_attribute module $variant prj          $prjDir/$variant.prj
 set_attribute module $variant xdc          $ipDir/$variant/constraints/TOP_FUNCTION_ooc.xdc
 set_attribute module $variant synth        ${run.rmSynth}
-
 {% set ns.curr_variant = ns.curr_variant + 1 %}
    {%- if (ns.curr_variant >= rp_variants) %}
        {%- set ns.curr_variant = 0 %}
@@ -99,8 +97,7 @@ set_attribute module $variant synth        ${run.rmSynth}
        {%- endif %}
    {%- endif %}
 {%- endfor %}
-
-{% for tree_ip_bank in tree_ips_bank %}
+{%- for tree_ip_bank in tree_ips_bank %}
 set module_{{tree_ip_bank.ibank}}_{{tree_ip_bank.itree}}_inst "top_system_i/tree_{{tree_ip_bank.ibank}}_{{tree_ip_bank.itree}}/inst/tree_bb"
 {%- endfor %}
 
@@ -126,7 +123,7 @@ set_attribute impl $config partitions      [list [list $static           $top   
 set_attribute impl $config partitions      [list [list $static           $top           import] {{'\\'}}
    {%- endif %}
 {%- for tree_ip in tree_ip_config.tree_ips %}
-{{'                                                [list [ if { [info exists module_%d_%d_variant%d] == 1 } {set module_%d_%d_variant%d} {set module_0_0_variant0} ] $module_%d_%d_inst [ if { [info exists module_%d_%d_variant%d] == 1 } {expr {{implement}}} {expr {{greybox}}} ]] \\'|format(tree_ip.ibank,tree_ip.itree,tree_ip_config.iconfig,tree_ip.ibank,tree_ip.itree,tree_ip_config.iconfig,tree_ip.ibank,tree_ip.itree,tree_ip.ibank,tree_ip.itree,tree_ip_config.iconfig)}} 
+                                                [list [ if { [info exists module_{{tree_ip.ibank}}_{{tree_ip.itree}}_variant{{tree_ip_config.iconfig}}] == 1 } {set module_{{tree_ip.ibank}}_{{tree_ip.itree}}_variant{{tree_ip_config.iconfig}}} {set module_0_0_variant0} ] $module_{{tree_ip.ibank}}_{{tree_ip.itree}}_inst [ if { [info exists module_{{tree_ip.ibank}}_{{tree_ip.itree}}_variant{{tree_ip_config.iconfig}}] == 1 } {expr {{'{{implement}}}'}} {expr {{'{{greybox}}'}}} ]] {{'\\'}}
 {%- endfor %}
                                          ]
  set_attribute impl $config verify          ${run.prVerify} 
