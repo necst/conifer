@@ -40,6 +40,7 @@ cfg['PDR'] = True
 cfg['Banks'] = "2"
 cfg['TreesPerBank'] = "3"
 cfg['nJobs'] = "12"
+cfg['Precision'] = "ap_fixed<8,4>"
 
 
 model = entree.model(clf, entree.converters.sklearn,

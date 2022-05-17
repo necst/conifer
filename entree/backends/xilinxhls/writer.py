@@ -397,7 +397,7 @@ def write(ensemble_dict, cfg):
 def auto_config():
     config = {'ProjectName': 'my_prj',
               'OutputDir': 'my-entree-prj',
-              'Precision': 'ap_fixed<16,8>',
+              'Precision': 'ap_fixed<18,8>',
               'XilinxPart': 'xczu3eg-sbva484-1-i',
               'ClockPeriod': '5',
               'PDR': False,
@@ -491,15 +491,13 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
                     if '.bit' in j:
                         shutil.copyfile('{}/{}/{}'.format(source,i,j), '{}/{}'.format(destination,j))
         # move .hwh files to destination folder, renaming with same names of .bit
-        source = '{}/{}_system/{}_system.gen/sources_1/bd/top_system/bd'.format(current, config['ProjectName'], config['ProjectName'], config['ProjectName'])
+        source = '{}/{}_system/{}_system.gen/sources_1/bd'.format(current, config['ProjectName'], config['ProjectName'], config['ProjectName'])
         for i in os.listdir(source):
             if 'tree_rm' in i:
-                for j in os.listdir('{}/{}/hw_handoff'.format(source,i)):
-                    if '.hwh' in j:
-                        for h in os.listdir(destination):
-                            if j.strip('.hwh') in h and '.bit' in h:
-                                h = h.replace('.bit','')
-                                shutil.copyfile('{}/{}/hw_handoff/{}'.format(source,i,j), '{}/{}.hwh'.format(destination,h))
+                for j in os.listdir(destination):
+                    if i in j and '.bit' in j:
+                        j = j.replace('.bit','.hwh')
+                        shutil.copyfile('{}/{}/hw_handoff/{}.hwh'.format(source,i,i),'{}/{}'.format(destination,j))
         source = '{}/{}_system/{}_system.gen/sources_1/bd/top_system/hw_handoff/top_system.hwh'.format(current, config['ProjectName'], config['ProjectName'], config['ProjectName'])
         shutil.copyfile(source, '{}/top_system_wrapper.hwh'.format(destination))
 
