@@ -6,6 +6,7 @@
 {% if cfg_get_PDR %}
 #include "utils.h"
 #include "ap_axi_sdata.h"
+{% endif %}
 
 static const int n_trees = {{n_trees}};
 static const int max_depth = {{max_depth}};
@@ -59,4 +60,3 @@ static const BDT::BDT<n_trees, max_depth, n_classes, input_arr_t, score_t, thres
     }
 };
 #endif
-{%- endif %}

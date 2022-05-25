@@ -158,13 +158,13 @@ int main(int argc, char **argv)
       {%- endif %}
 
 //hls-fpga-machine-learning insert output'
- {{indent}}for(int i = 0; i < {{n_classes}}; i++) {{
+ {{indent}}for(int i = 0; i < {{n_classes}}; i++) {
  {{indent}}   std::cout << score[i] << ;
  {{indent}} }
  {{indent}} std::cout << std::endl;
 
 //hls-fpga-machine-learning insert tb-output'
- {{indent}} for(int i = 0; i < {{n_classes}}; i++) {{
+ {{indent}} for(int i = 0; i < {{n_classes}}; i++) {
  {{indent}}   fout << score[i] << ;
  {{indent}} }
   }

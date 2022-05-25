@@ -73,6 +73,8 @@ def write(ensemble_dict, cfg):
     # TODO: Flexible bank sizing
     if cfg.get('PDR', False) == True:
         bank_count = int(cfg['Banks'])
+    else:
+        bank_count = 0
     
 
     os.makedirs('{}/firmware'.format(cfg['OutputDir']))
