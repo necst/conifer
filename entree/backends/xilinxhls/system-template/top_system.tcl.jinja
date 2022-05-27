@@ -130,6 +130,22 @@ if { $parentObj == "" } {
 set oldCurInst [current_bd_instance .]
 
 # Create reconfigurable modules as block design containing single tree IPs
+# idle tree:
+create_bd_design tree_rm_idle
+create_bd_cell -type ip -vlnv xilinx.com:iris_PDR_Vivado_GB:tree_idle:1.0 tree_idle_0
+startgroup
+make_bd_intf_pins_external  [get_bd_intf_pins tree_idle_0/input_stream]
+make_bd_pins_external  [get_bd_pins tree_idle_0/ap_clk]
+make_bd_pins_external  [get_bd_pins tree_idle_0/ap_rst_n]
+make_bd_intf_pins_external  [get_bd_intf_pins tree_idle_0/output_stream]
+endgroup
+set_property name input_stream [get_bd_intf_ports input_stream_0]
+set_property name ap_clk [get_bd_ports ap_clk_0]
+set_property name ap_rst_n [get_bd_ports ap_rst_n_0]
+set_property name output_stream [get_bd_intf_ports output_stream_0]
+validate_bd_design
+save_bd_design
+# trees:
 for {set i 0} {$i < $n_classes} {incr i} {
    for {set j 0} {$j < [lindex $trees_in_class $i]} {incr j} {
       create_bd_design tree_rm_${i}_${j}
@@ -155,6 +171,7 @@ current_bd_instance $parentObj
 
 ## Insert processing-system-block
 # Currently support Ultrascale+
+# TODO: add compatibility for both ultrascale and zynq7000
 create_bd_cell -type ip -vlnv xilinx.com:ip:zynq_ultra_ps_e:3.3 zynq_ultra_ps_e_0
 apply_bd_automation -rule xilinx.com:bd_rule:zynq_ultra_ps_e -config {apply_board_preset "1" }  [get_bd_cells zynq_ultra_ps_e_0]
 set_property -dict [list CONFIG.PSU__USE__M_AXI_GP1 {0} CONFIG.PSU__USE__S_AXI_GP0 {1}] [get_bd_cells zynq_ultra_ps_e_0]
@@ -266,10 +283,8 @@ set j_tree_in_class 0
 
 for {set i 0} {$i < $n_banks} {incr i} {
     for {set j 0} {$j < $n_trees_per_bank} {incr j} {	
-		create_bd_cell -type container -reference tree_rm_${i_class}_${j_tree_in_class} tree_rm_${i_class}_${j_tree_in_class}
-		set_property -dict [list CONFIG.ENABLE_DFX {true}] [get_bd_cells tree_rm_${i_class}_${j_tree_in_class}]	
-		set_property name tree_rp_${i}_${j} [get_bd_cells tree_rm_${i_class}_${j_tree_in_class}]
-		
+		create_bd_cell -type container -reference tree_rm_idle tree_rp_${i}_${j}
+		set_property -dict [list CONFIG.ENABLE_DFX {true}] [get_bd_cells tree_rp_${i}_${j}]		
 		if {$j_tree_in_class < [expr { [lindex $trees_in_class $i_class] - 1 }] } {
 			incr j_tree_in_class	
 		} else {
@@ -278,6 +293,7 @@ for {set i 0} {$i < $n_banks} {incr i} {
 		}
 	}
 }
+
 
 # Assign the correct RMs to every single RP, using jinja
 {%- set ns=namespace(newline='') %}
