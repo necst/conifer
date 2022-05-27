@@ -100,10 +100,6 @@ def write(ensemble_dict, cfg):
                     '{}/{}_reconfigurable_system/scripts/tcl/{}'.format(cfg['OutputDir'], cfg['ProjectName'], entry.name)
                 )
 
-    # Default clock:
-    if cfg.get('ClockPeriod', False) == False:
-        cfg['ClockPeriod'] = "5"
-
     # Templates directory:
     env = Environment(loader=FileSystemLoader(filedir))
     
