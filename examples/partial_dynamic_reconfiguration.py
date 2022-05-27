@@ -25,7 +25,6 @@ clf = GradientBoostingClassifier(n_estimators=6, learning_rate=1.0,
                                  max_depth=3, random_state=0).fit(X, y)
 
 # Create an entree config
-# NOTE: if not set, the nJobs will be set to total number of cores minus two
 cfg = entree.backends.xilinxhls.auto_config()
 # Set the output directory to something unique
 cfg['ProjectName'] = 'iris_PDR_Vivado_GB'
@@ -39,8 +38,6 @@ cfg['ClockPeriod'] = "10"
 cfg['PDR'] = True
 cfg['Banks'] = "2"
 cfg['TreesPerBank'] = "3"
-cfg['nJobs'] = "12"
-cfg['Precision'] = "ap_fixed<8,4>"
 
 
 model = entree.model(clf, entree.converters.sklearn,
