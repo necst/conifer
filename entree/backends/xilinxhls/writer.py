@@ -209,8 +209,7 @@ def write(ensemble_dict, cfg):
         class_count=class_count,
         tree_ips=tree_ips,
         enumerate_tree=enumerate(trees),
-        ensemble_trees=enumerate(ensemble_dict['trees']),
-        indent=''
+        ensemble_trees=enumerate(ensemble_dict['trees'])
     ).dump('{}/{}_test.cpp'.format(cfg['OutputDir'], cfg['ProjectName']))
 
 
