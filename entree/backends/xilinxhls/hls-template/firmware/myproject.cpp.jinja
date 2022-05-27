@@ -1,7 +1,7 @@
 #include "BDT.h"
 #include "parameters.h"
 #include "{{projectname}}.h" 
-{%- if not cfg_get %}
+{%- if not cfg_PDR %}
 {#- Monolithic IP #}
 void {{projectname}}(input_t *x, score_t *score/*, score_t tree_scores[BDT::fn_classes(n_classes) * n_trees]*/){
     #pragma HLS INTERFACE s_axilite port=return

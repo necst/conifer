@@ -54,7 +54,7 @@ source build_pdr_ips/tree_idle.tcl
 source build_pdr_ips/vote_buffer.tcl
 source build_pdr_ips/enumerator.tcl
 {#- hls-fpga-machine-learning insert individual-ips #}
-{%- if cfg_get %}
+{%- if cfg_PDR %}
     {%- for ibank in range_bank_count%}
 source build_pdr_ips/bank_buffer_{{ibank}}.tcl
     {%- endfor %}

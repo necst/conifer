@@ -3,7 +3,7 @@
 
 #include "BDT.h"
 #include "ap_fixed.h"
-{% if cfg_get_PDR %}
+{% if cfg_PDR %}
 #include "utils.h"
 #include "ap_axi_sdata.h"
 {% endif %}
@@ -18,7 +18,7 @@ typedef {{Precision}} score_t;
 typedef score_t score_arr_t[n_classes];
     {#- TODO score_arr_t #}
 typedef input_t threshold_t;
-    {% if cfg_get_PDR %}
+    {% if cfg_PDR %}
         {#- TODO: Allow max_parallel_sample configuration #}
 static const int max_parallel_samples = {{max_parallel_samples}};
 static const int bank_count = {{bank_count}};

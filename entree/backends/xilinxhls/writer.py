@@ -122,7 +122,7 @@ def write(ensemble_dict, cfg):
     
     template.stream(
         projectname=cfg['ProjectName'],
-        cfg_get=cfg.get('PDR', False),
+        cfg_PDR=cfg.get('PDR', False),
         bank_count=bank_count,
         tree_ips=tree_ips,
         range_bank_count=range(1, bank_count + 1),
@@ -150,7 +150,7 @@ def write(ensemble_dict, cfg):
     max_parallel_samples=6
     
     template.stream(
-        cfg_get_PDR=cfg.get('PDR', False),
+        cfg_PDR=cfg.get('PDR', False),
         Precision=cfg['Precision'],
         n_trees=ensemble_dict['n_trees'],
         max_depth=ensemble_dict['max_depth'],
@@ -182,7 +182,7 @@ def write(ensemble_dict, cfg):
              class_count = len(trees)
 
     template.stream(
-        cfg_get=cfg.get('PDR', False),
+        cfg_PDR=cfg.get('PDR', False),
         projectname=cfg['ProjectName'],
         range_bank_count=range(1, bank_count + 1),
         ensemble_trees=enumerate(ensemble_dict['trees']),
@@ -204,7 +204,7 @@ def write(ensemble_dict, cfg):
     template.stream(
         n_features=ensemble_dict['n_features'],
         n_classes=ensemble_dict['n_classes'],
-        cfg_get=cfg.get('PDR', False),
+        cfg_PDR=cfg.get('PDR', False),
         projectname=cfg['ProjectName'],
         class_count=class_count,
         tree_ips=tree_ips,
@@ -233,7 +233,7 @@ def write(ensemble_dict, cfg):
         weights=False,
         tree_ips=tree_ips,
         range_class_count=range(class_count),
-        cfg_get=cfg.get('PDR', False),
+        cfg_PDR=cfg.get('PDR', False),
         range_bank_count=range(1, bank_count + 1)
     ).dump('{}/build_prj.tcl'.format(cfg['OutputDir']))
 
