@@ -19,7 +19,6 @@
 import os
 import shutil
 import sys
-from shutil import copyfile
 import numpy as np
 import math
 import glob
@@ -78,9 +77,9 @@ def write(ensemble_dict, cfg):
 
     os.makedirs('{}/firmware'.format(cfg['OutputDir']))
     os.makedirs('{}/tb_data'.format(cfg['OutputDir']))
-    copyfile('{}/firmware/BDT.h'.format(filedir),
+    shutil.copyfile('{}/firmware/BDT.h'.format(filedir),
              '{}/firmware/BDT.h'.format(cfg['OutputDir']))
-    copyfile('{}/firmware/utils.h'.format(filedir),
+    shutil.copyfile('{}/firmware/utils.h'.format(filedir),
             '{}/firmware/utils.h'.format(cfg['OutputDir']))
     if cfg.get('PDR', False) == True:
         os.makedirs('{}/{}_reconfigurable_system'.format(cfg['OutputDir'], cfg['ProjectName']))
@@ -94,7 +93,7 @@ def write(ensemble_dict, cfg):
         os.makedirs('{}/{}_reconfigurable_system/scripts/tcl'.format(cfg['OutputDir'], cfg['ProjectName']))
         for entry in os.scandir('{}/system-template/reconfigurable_system/scripts/tcl'.format(filedir)):
             if entry.is_file():
-                copyfile(
+                shutil.copyfile(
                     entry.path, 
                     '{}/{}_reconfigurable_system/scripts/tcl/{}'.format(cfg['OutputDir'], cfg['ProjectName'], entry.name)
                 )
@@ -339,11 +338,10 @@ def write(ensemble_dict, cfg):
                 else:
                     counter += 1
         counter = 0
-        set_properties=[]
+        RM_dict = []
         for i in range(n_banks):
             for j in range(n_trees_per_bank):
-                    rp="tree_rp_{}_{}".format(i,j)
-                    set_properties.append({ "rp": rp , "rm": list[counter]  })
+                    RM_dict.append({ "rp": "tree_rp_{}_{}".format(i,j) , "rm": list[counter]  })
                     counter+=1
 
         template.stream(
@@ -354,7 +352,7 @@ def write(ensemble_dict, cfg):
                 nBanks = bank_count,
                 nClasses = class_count,
                 TreesInClass = trees_in_class,
-                set_properties = set_properties,
+                RM_dict = RM_dict,
                 SampleLength = int((2**math.ceil(math.log(precision, 2)))*ensemble_dict['n_features']),
                 ResultLength = int(8*math.ceil(precision)/8),
                 OutputLength = int(2**math.ceil(math.log(8*(math.ceil(precision)/8), 2))),
@@ -372,7 +370,7 @@ def write(ensemble_dict, cfg):
                 XilinxPart = cfg['XilinxPart'],
                 XilinxBoard = cfg['XilinxBoard'],
                 TreesPerBank = int(cfg['TreesPerBank']),
-                set_properties = set_properties,
+                RM_dict = RM_dict,
                 iter_cfgs = range( tree_count ),
                 iter_runs = range(int(total_trees / (n_trees_per_bank*n_banks))),
                 n_trees = n_trees,
