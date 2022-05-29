@@ -23,7 +23,7 @@ import numpy as np
 import math
 import glob
 import zipfile
-from jinja2 import Environment, FileSystemLoader
+from . import env
 
 _TOOLS = {
     'vivadohls': 'vivado_hls',
@@ -100,8 +100,6 @@ def write(ensemble_dict, cfg):
                     '{}/{}_reconfigurable_system/scripts/tcl/{}'.format(cfg['OutputDir'], cfg['ProjectName'], entry.name)
                 )
 
-    # Templates directory:
-    env = Environment(loader=FileSystemLoader(filedir))
     
     ###################
     # myproject.cpp

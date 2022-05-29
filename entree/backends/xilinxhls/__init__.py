@@ -4,6 +4,20 @@
 import sys
 import importlib.util
 
+import os
+from jinja2 import Environment, FileSystemLoader
+
+# Templates directory:
+class TemplatesDir():
+  def __new__(cls,dir):
+    if not hasattr(cls, 'instance'):
+      cls.instance = super(TemplatesDir, cls).__new__(cls)
+      cls.env=Environment(loader=FileSystemLoader(dir))
+    return cls.env
+
+DefaultDir = os.path.dirname(os.path.abspath(__file__))
+env=TemplatesDir(DefaultDir)
+
 SPEC_WRITER = importlib.util.find_spec('.writer', __name__)
 
 writer = importlib.util.module_from_spec(SPEC_WRITER)
