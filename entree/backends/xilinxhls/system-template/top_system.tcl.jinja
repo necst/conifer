@@ -298,7 +298,7 @@ for {set i 0} {$i < $n_banks} {incr i} {
 # Assign the correct RMs to every single RP, using jinja
 {%- set ns=namespace(newline='') %}
 {%- set nss=namespace(rm_newline='') %}
-{%- for set_property in set_properties%}
+{%- for set_property in rm_in_rp_dict%}
     {%- set nss.rm_newline='{' %}
     {%- set nsss=namespace(count=0)%}
         {%- for rm in set_property.rm%}

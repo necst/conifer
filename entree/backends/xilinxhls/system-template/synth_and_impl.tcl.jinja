@@ -25,6 +25,8 @@ launch_runs top_system_* -jobs ${n_jobs}
 
 
 # DFX wizard: set configurations and configuration runs
+# TODO: fix it, the configuration are created in the wrong way: using for example 6 total trees it should create only one 
+# configuration instead of three (that BTW are created ion a wrong way)
 {%- set ns=namespace() %}
 {%- set ns.config = 0 %}
 {%- set ns.counter = 0 %}
@@ -32,7 +34,7 @@ launch_runs top_system_* -jobs ${n_jobs}
     {%- if ns.counter==0 %}
         {%- set ns.newline='create_pr_configuration -name config_%d -partitions [list '|format( ns.config + 1 )%}
     {%- endif %}
-            {%- set ns.newline='%stop_system_i/%s:%s_inst_0 '|format(ns.newline,set_properties[ns.counter]['rp'],set_properties[ns.counter]['rm'][ns.config])%}
+            {%- set ns.newline='%stop_system_i/%s:%s_inst_0 '|format(ns.newline,rm_in_rp_dict[ns.counter]['rp'],rm_in_rp_dict[ns.counter]['rm'][ns.config])%}
     {%- if ns.counter==n_trees-1 %}
         {%- set ns.newline='%s]'|format(ns.newline)%}
 {{ns.newline}}
@@ -65,7 +67,6 @@ create_ip_run [get_files -of_objects [get_fileset sources_1] ${prj_dir}/${prj_ro
 refresh_design
 
 # launch implementation and bitstream write
-# TODO: add correct launch of impl runs
 reset_run synth_1
 launch_runs 
 {%- set ns.counter = 0 %}

@@ -327,21 +327,21 @@ def write(ensemble_dict, cfg):
         for i in range(n_classes):
             total_trees += trees_in_class[i]     
 
-        list = [[] for i in range(n_banks*n_trees_per_bank)]
+        rm_in_rp_list = [[] for i in range(n_banks*n_trees_per_bank)]
         counter = 0
 
         for i in range(n_classes):
             for j in range(trees_in_class[i]):
-                list[counter].append("tree_rm_{}_{}".format(i,j))
+                rm_in_rp_list[counter].append("tree_rm_{}_{}".format(i,j))
                 if counter == (n_trees_per_bank * n_banks) - 1:
                     counter = 0
                 else:
                     counter += 1
         counter = 0
-        RM_dict = []
+        rm_in_rp_dict = []
         for i in range(n_banks):
             for j in range(n_trees_per_bank):
-                    RM_dict.append({ "rp": "tree_rp_{}_{}".format(i,j) , "rm": list[counter]  })
+                    rm_in_rp_dict.append({ "rp": "tree_rp_{}_{}".format(i,j) , "rm": rm_in_rp_list[counter]  })
                     counter+=1
 
         template.stream(
@@ -352,7 +352,7 @@ def write(ensemble_dict, cfg):
                 nBanks = bank_count,
                 nClasses = class_count,
                 TreesInClass = trees_in_class,
-                RM_dict = RM_dict,
+                rm_in_rp_dict = rm_in_rp_dict,
                 SampleLength = int((2**math.ceil(math.log(precision, 2)))*ensemble_dict['n_features']),
                 ResultLength = int(8*math.ceil(precision)/8),
                 OutputLength = int(2**math.ceil(math.log(8*(math.ceil(precision)/8), 2))),
@@ -370,7 +370,7 @@ def write(ensemble_dict, cfg):
                 XilinxPart = cfg['XilinxPart'],
                 XilinxBoard = cfg['XilinxBoard'],
                 TreesPerBank = int(cfg['TreesPerBank']),
-                RM_dict = RM_dict,
+                rm_in_rp_dict = rm_in_rp_dict,
                 iter_cfgs = range( tree_count ),
                 iter_runs = range(int(total_trees / (n_trees_per_bank*n_banks))),
                 n_trees = n_trees,
