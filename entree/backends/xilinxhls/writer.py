@@ -330,6 +330,10 @@ def write(ensemble_dict, cfg):
         rm_in_rp_list = [[] for i in range(n_banks*n_trees_per_bank)]
         counter = 0
 
+        for i in range(n_banks):
+            for j in range(n_trees_per_bank):
+                rm_in_rp_list[i * n_trees_per_bank + j].append("tree_rm_idle")
+       
         for i in range(n_classes):
             for j in range(trees_in_class[i]):
                 rm_in_rp_list[counter].append("tree_rm_{}_{}".format(i,j))
@@ -339,10 +343,11 @@ def write(ensemble_dict, cfg):
                     counter += 1
         counter = 0
         rm_in_rp_dict = []
+
         for i in range(n_banks):
             for j in range(n_trees_per_bank):
-                    rm_in_rp_dict.append({ "rp": "tree_rp_{}_{}".format(i,j) , "rm": rm_in_rp_list[counter]  })
-                    counter+=1
+                rm_in_rp_dict.append({ "rp": "tree_rp_{}_{}".format(i,j) , "rm": rm_in_rp_list[counter]  })
+                counter += 1
 
         template.stream(
                 projectname = cfg['ProjectName'],

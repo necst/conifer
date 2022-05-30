@@ -296,6 +296,7 @@ for {set i 0} {$i < $n_banks} {incr i} {
 
 
 # Assign the correct RMs to every single RP, using jinja
+# TODO: include tree_idle in every RP 
 {%- set ns=namespace(newline='') %}
 {%- set nss=namespace(rm_newline='') %}
 {%- for set_property in rm_in_rp_dict%}
