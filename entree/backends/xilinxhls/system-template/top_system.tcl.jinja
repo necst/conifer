@@ -297,26 +297,14 @@ for {set i 0} {$i < $n_banks} {incr i} {
 
 # Assign the correct RMs to every single RP, using jinja
 # TODO: include tree_idle in every RP 
-{%- set ns=namespace(newline='') %}
-{%- set nss=namespace(rm_newline='') %}
-{%- for set_property in rm_in_rp_dict%}
-    {%- set nss.rm_newline='{' %}
-    {%- set nsss=namespace(count=0)%}
-        {%- for rm in set_property.rm%}
-            {%- if nsss.count==0%}
-            {%- set nss.rm_newline='%s%s.bd'|format(nss.rm_newline,rm) %}
-            {%- set nsss.count = nsss.count + 1 %}
-            {%- else %}
-            {%- set nss.rm_newline='%s:%s.bd'|format(nss.rm_newline,rm) %}
-            {%- endif %}
-        {%- endfor%}
-    {%- set nss.rm_newline='%s}'|format(nss.rm_newline) %}
-    {%- set ns.newline='%sset_property -dict [list CONFIG.LIST_SYNTH_BD %s'|format(ns.newline,nss.rm_newline)%}
-    {%- set ns.newline='%s CONFIG.LIST_SIM_BD %s'|format(ns.newline,nss.rm_newline)%}
-    {%- set ns.newline='%s] [get_bd_cells /'|format(ns.newline)%}
-    {%- set ns.newline='%s%s]\n'|format(ns.newline,set_property.rp)%}
+
+{%- for i_rp in rm_in_rp_dict %}
+set_property -dict [list CONFIG.LIST_SYNTH_BD {
+   {{- i_rp.rm| join(".bd:") + ".bd"  -}}
+} CONFIG.LIST_SIM_BD {
+   {{- i_rp.rm| join(".bd:") + ".bd"  -}}
+ } [get_bd_cells /{{ i_rp.rp }}]
 {%- endfor %}
-{{ns.newline}}
 
 ############################################
 
