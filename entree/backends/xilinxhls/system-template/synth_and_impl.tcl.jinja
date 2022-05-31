@@ -41,6 +41,11 @@ tree_rm_idle_inst_0
 ]
 {%- endfor %}
 
+set_property PR_CONFIGURATION config_1 [get_runs_impl_1]
+{%- for i_cfg in range(2,n_cfgs + 1) %}
+create_run child_{{i_cfg-2}}_imp_1 -parent_run impl_1 -flow {Vivado Implementation 2021} -pr_config config_{{i_cfg}}
+{%- endfor%}
+
 # launch synthesis
 launch_runs synth_1 -jobs ${n_jobs}
 wait_on_run synth_1
@@ -54,24 +59,5 @@ refresh_design
 
 # launch implementation and bitstream write
 reset_run synth_1
-launch_runs 
-{# {%- set ns.counter = 0 %}
-{%- for i in iter_runs %}
-    {%- if ns.counter==0 -%}
-{{' '}}impl_1
-    {%- else -%}
-{{' '}}child_{{ns.counter - 1}}_impl_1
-    {%- endif %}
-    {%- set ns.counter = ns.counter + 1 -%}
-{%- endfor %} -to_step write_bitstream -jobs ${n_jobs}
-wait_on_run 
-{%- set ns.counter = 0 %}
-{%- for i in iter_runs %}
-    {%- if ns.counter==0 -%}
-{{' '}}impl_1
-    {%- else -%}
-{{' '}}child_{{ns.counter - 1}}_impl_1
-    {%- endif %}
-    {%- set ns.counter = ns.counter + 1 -%} #}
-{# {%- endfor %} #}
-
+launch_runs impl_1 {% for i_cfg in range(0,n_cfgs -1 ) %}child_{{i_cfg}}_impl_1 {% endfor %}-to_step write_bitstream -jobs ${n_jobs}
+wait_on_run impl_1 {% for i_cfg in range(0,n_cfgs -1 ) %}child_{{i_cfg}}_impl_1 {% endfor %}
