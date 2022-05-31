@@ -303,7 +303,7 @@ set_property -dict [list CONFIG.LIST_SYNTH_BD {
    {{- i_rp.rm| join(".bd:") + ".bd"  -}}
 } CONFIG.LIST_SIM_BD {
    {{- i_rp.rm| join(".bd:") + ".bd"  -}}
- } [get_bd_cells /{{ i_rp.rp }}]
+ }] [get_bd_cells /{{ i_rp.rp }}]
 {%- endfor %}
 
 ############################################
