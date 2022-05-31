@@ -323,9 +323,9 @@ def write(ensemble_dict, cfg):
         n_trees_per_bank = int(cfg['TreesPerBank'])
         n_classes = int(ensemble_dict['n_classes'])
         n_trees = int(ensemble_dict['n_trees'])
-        total_trees = 0
+        n_total_trees = 0
         for i in range(n_classes):
-            total_trees += trees_in_class[i]     
+            n_total_trees += trees_in_class[i]     
 
         rm_in_rp_list = [[] for i in range(n_banks*n_trees_per_bank)]
         counter = 0
@@ -374,14 +374,15 @@ def write(ensemble_dict, cfg):
                 projectname = cfg['ProjectName'],
                 XilinxPart = cfg['XilinxPart'],
                 XilinxBoard = cfg['XilinxBoard'],
-                TreesPerBank = int(cfg['TreesPerBank']),
+                n_trees_per_bank = int(cfg['TreesPerBank']),
                 rm_in_rp_dict = rm_in_rp_dict,
                 iter_cfgs = range( tree_count ),
-                iter_runs = range(int(total_trees / (n_trees_per_bank*n_banks))),
+                iter_runs = range(int(n_total_trees / (n_trees_per_bank*n_banks))),
                 n_trees = n_trees,
-                nBanks = bank_count,
+                n_banks = bank_count,
                 nClasses = class_count,
-                nJobs = int(cfg['nJobs'])
+                nJobs = int(cfg['nJobs']),
+                n_cfgs = math.ceil((n_total_trees / (n_trees_per_bank*n_banks)))
         ).dump('{}/synth_and_impl.tcl'.format(cfg['OutputDir'], cfg['ProjectName']) )
 
     #######################

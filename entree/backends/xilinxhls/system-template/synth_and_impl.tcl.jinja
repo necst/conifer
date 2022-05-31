@@ -8,9 +8,10 @@ set prj_name {{projectname}}_system
 set prj_part {{XilinxPart}}
 set prj_board {{XilinxBoard}}
 set n_classes {{nClasses}}
-set n_banks {{nBanks}}
-set n_trees_per_bank {{TreesPerBank}}
+set n_banks {{n_banks}}
+set n_trees_per_bank {{n_trees_per_bank}}
 set n_jobs {{nJobs}}
+set n_cfgs {{n_cfgs}}
 
 open_project ${prj_dir}/${prj_root}.xpr
 update_compile_order -fileset sources_1
@@ -27,32 +28,17 @@ launch_runs top_system_* -jobs ${n_jobs}
 # DFX wizard: set configurations and configuration runs
 # TODO: fix it, the configuration are created in the wrong way: using for example 6 total trees it should create only one 
 # configuration instead of three (that BTW are created ion a wrong way)
-{%- set ns=namespace() %}
-{%- set ns.config = 0 %}
-{%- set ns.counter = 0 %}
-{%- for i in iter_cfgs %}
-    {%- if ns.counter==0 %}
-        {%- set ns.newline='create_pr_configuration -name config_%d -partitions [list '|format( ns.config + 1 )%}
-    {%- endif %}
-            {%- set ns.newline='%stop_system_i/%s:%s_inst_0 '|format(ns.newline,rm_in_rp_dict[ns.counter]['rp'],rm_in_rp_dict[ns.counter]['rm'][ns.config])%}
-    {%- if ns.counter==n_trees-1 %}
-        {%- set ns.newline='%s]'|format(ns.newline)%}
-{{ns.newline}}
-        {%- set ns.config = ns.config + 1%}
-        {%- set ns.counter=0%}
-    {%- else %}
-        {%- set ns.counter = ns.counter + 1 %}
-    {%- endif %}
-{%- endfor %}
-
-{%- set ns.counter = 0 %}
-{%- for i in iter_runs %}
-    {%- if ns.counter==0 %}
-set_property PR_CONFIGURATION config_1 [get_runs impl_1]
-    {%- else %}
-create_run child_{{ns.counter - 1}}_impl_1 -parent_run impl_1 -flow {Vivado Implementation 2021} -pr_config config_{{ns.counter + 1}}
-    {%- endif %}
-    {%- set ns.counter = ns.counter + 1 %}
+{% for i_cfg in range(1,n_cfgs + 1) %}
+create_pr_configuration -name config_{{i_cfg}} -partitions [list
+    {%- for i_rp in range(n_trees_per_bank*n_banks) -%}
+{{' '}}top_system_i/{{rm_in_rp_dict[i_rp]['rp']}}:
+        {%- if i_cfg >= rm_in_rp_dict[i_rp]['rm']|length -%}
+tree_rm_idle_inst_0
+        {%- else -%}
+{{rm_in_rp_dict[i_rp]['rm'][i_cfg]}}_inst_0
+        {%- endif -%}
+    {%- endfor -%}
+]
 {%- endfor %}
 
 # launch synthesis
@@ -69,7 +55,7 @@ refresh_design
 # launch implementation and bitstream write
 reset_run synth_1
 launch_runs 
-{%- set ns.counter = 0 %}
+{# {%- set ns.counter = 0 %}
 {%- for i in iter_runs %}
     {%- if ns.counter==0 -%}
 {{' '}}impl_1
@@ -86,6 +72,6 @@ wait_on_run
     {%- else -%}
 {{' '}}child_{{ns.counter - 1}}_impl_1
     {%- endif %}
-    {%- set ns.counter = ns.counter + 1 -%}
-{%- endfor %}
+    {%- set ns.counter = ns.counter + 1 -%} #}
+{# {%- endfor %} #}
 
