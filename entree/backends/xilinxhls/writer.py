@@ -23,7 +23,7 @@ import numpy as np
 import math
 import glob
 import zipfile
-from . import env
+from . import templating_environment as env
 
 _TOOLS = {
     'vivadohls': 'vivado_hls',
