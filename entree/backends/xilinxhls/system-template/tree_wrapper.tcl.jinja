@@ -42,9 +42,9 @@ if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
 set prj_root  [lindex $argv 0]
 set prj_dir [lindex $argv 1]
 set ip_dir [lindex $argv 2]
-set prj_name ## hls-fpga-machine-learning insert project-name
-set prj_part ## hls-fpga-machine-learning insert project-part
-set prj_board ## hls-fpga-machine-learning insert project-board
+set prj_name {{projectname}}_system
+set prj_part {{XilinxPart}}
+set prj_board {{XilinxBoard}}
 
 ################################################################
 # START
@@ -97,7 +97,7 @@ set oldCurInst [current_bd_instance .]
 # Set parent object as current
 current_bd_instance $parentObj
 
-create_bd_cell -type ip -vlnv xilinx.com:##project_name##:tree_cl0_0:1.0 tree_bb
+create_bd_cell -type ip -vlnv xilinx.com:{{projectname}}:tree_cl0_0:1.0 tree_bb
 
 
 create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:axis_rtl:1.0 input_stream
@@ -113,11 +113,10 @@ connect_bd_net [get_bd_pins /tree_bb/ap_rst_n] [get_bd_ports resetn]
 create_bd_intf_port -mode Master -vlnv xilinx.com:interface:axis_rtl:1.0 output_stream
 connect_bd_intf_net [get_bd_intf_pins tree_bb/output_stream] [get_bd_intf_ports output_stream]
 
-ipx::package_project -root_dir $ip_dir -vendor xilinx.com -library ##project_name## -taxonomy /UserIP -module tree_wrapper -import_files -force
-ipx::remove_bus_parameter FREQ_HZ [ipx::get_bus_interfaces CLK.AP_CLK -of_objects [ipx::find_open_core xilinx.com:##project_name##:tree_wrapper:1.0]]
-set_property core_revision 1 [ipx::find_open_core xilinx.com:##project_name##:tree_wrapper:1.0]
-ipx::create_xgui_files [ipx::find_open_core xilinx.com:##project_name##:tree_wrapper:1.0]
-ipx::update_checksums [ipx::find_open_core xilinx.com:##project_name##:tree_wrapper:1.0]
-ipx::check_integrity [ipx::find_open_core xilinx.com:##project_name##:tree_wrapper:1.0]
-ipx::save_core [ipx::find_open_core xilinx.com:##project_name##:tree_wrapper:1.0]
-
+ipx::package_project -root_dir $ip_dir -vendor xilinx.com -library {{projectname}} -taxonomy /UserIP -module tree_wrapper -import_files -force
+ipx::remove_bus_parameter FREQ_HZ [ipx::get_bus_interfaces CLK.AP_CLK -of_objects [ipx::find_open_core xilinx.com:{{projectname}}:tree_wrapper:1.0]]
+set_property core_revision 1 [ipx::find_open_core xilinx.com:{{projectname}}:tree_wrapper:1.0]
+ipx::create_xgui_files [ipx::find_open_core xilinx.com:{{projectname}}:tree_wrapper:1.0]
+ipx::update_checksums [ipx::find_open_core xilinx.com:{{projectname}}:tree_wrapper:1.0]
+ipx::check_integrity [ipx::find_open_core xilinx.com:{{projectname}}:tree_wrapper:1.0]
+ipx::save_core [ipx::find_open_core xilinx.com:{{projectname}}:tree_wrapper:1.0]

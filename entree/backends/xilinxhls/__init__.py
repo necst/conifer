@@ -4,6 +4,11 @@
 import sys
 import importlib.util
 
+import os
+from jinja2 import Environment, FileSystemLoader
+
+templating_environment = Environment(loader=FileSystemLoader(os.path.dirname(os.path.abspath(__file__))))
+
 SPEC_WRITER = importlib.util.find_spec('.writer', __name__)
 
 writer = importlib.util.module_from_spec(SPEC_WRITER)

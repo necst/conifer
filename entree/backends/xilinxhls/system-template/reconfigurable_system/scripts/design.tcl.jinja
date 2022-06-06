@@ -1,0 +1,156 @@
+# This source file comes from the Xilinx(r) Application Node 1231
+# (https://xilinx-wiki.atlassian.net/wiki/spaces/A/pages/18841851/XAPP1231+-+Partial+Reconfiguration+of+a+Hardware+Accelerator+with+Vivado+Design+Suite)
+
+###############################################################
+###   Tcl Variables
+###############################################################
+####Define location for "Tcl" directory. Defaults to "./Tcl"
+set tclHome "./scripts/tcl"
+if {[file exists $tclHome]} {
+   set tclDir $tclHome
+} elseif {[file exists "./tcl"]} {
+   set tclDir  "./tcl"
+} else {
+   error "ERROR: No valid location found for required Tcl scripts. Set \$tclDir in design.tcl to a valid location."
+}
+puts "Setting TCL dir to $tclDir"
+
+####Source required Tcl Procs
+source $tclDir/design_utils.tcl
+source $tclDir/log_utils.tcl
+source $tclDir/synth_utils.tcl
+source $tclDir/impl_utils.tcl
+source $tclDir/hd_floorplan_utils.tcl
+
+###############################################################
+### Define Part, Package, Speedgrade 
+###############################################################
+set part {{XilinxPart}}
+check_part $part
+
+###############################################################
+###  Setup Variables
+###############################################################
+#set tclParams [list <param1> <value> <param2> <value> ... <paramN> <value>]
+set tclParams [list hd.visual 1 \
+              ]
+
+####flow control
+set run.rmSynth        1
+set run.prImpl         1
+set run.prVerify       1
+set run.writeBitstream 1
+set run.flatImpl       0
+
+####Report and DCP controls - values: 0-required min; 1-few extra; 2-all
+set verbose      1
+set dcpLevel     1
+
+####Output Directories
+set synthDir  "./Synth"
+set implDir   "./Implement"
+set dcpDir    "./Checkpoint"
+set bitDir    "./Bitstreams"
+
+####Input Directories
+set srcDir     "./srcs"
+set xdcDir     "./constrs"
+set rtlDir     "$srcDir/hdl"
+set ipDir      "$srcDir/ip"
+set prjDir     "$srcDir/prj"
+
+###############################################################
+### Top Definition
+###############################################################
+set top "top_system_wrapper"
+set static "static"
+add_module $static
+set_attribute module $static moduleName      $top
+set_attribute module $static top_level       1
+set_attribute module $static synthCheckpoint $srcDir/dcp/static_shell.dcp
+
+####################################################################
+### RP Module Definitions
+####################################################################
+{% set ns=namespace() %}
+{%- set ns.curr_bank = 0 %}
+{%- set ns.curr_tree_in_bank = 0 %}
+{%- set ns.curr_variant = 0 %}
+{%- for tree_ip in tree_ips %}
+   {%- if (ns.curr_variant == 0) %}
+set module_{{ns.curr_bank}}_{{ns.curr_tree_in_bank}} "top_system_tree_{{ns.curr_bank}}_{{ns.curr_tree_in_bank}}_0_tree_wrapper_tree_bb_0"
+   {%- endif %}
+set module_{{ns.curr_bank}}_{{ns.curr_tree_in_bank}}_variant{{ns.curr_variant}} "tree_cl{{tree_ip.iclass}}_{{tree_ip.itree}}" 
+set variant $module_{{ns.curr_bank}}_{{ns.curr_tree_in_bank}}_variant{{ns.curr_variant}} 
+add_module $variant
+set_attribute module $variant moduleName   $module_{{ns.curr_bank}}_{{ns.curr_tree_in_bank}}
+set_attribute module $variant prj          $prjDir/$variant.prj
+set_attribute module $variant xdc          $ipDir/$variant/constraints/TOP_FUNCTION_ooc.xdc
+set_attribute module $variant synth        ${run.rmSynth}
+{% set ns.curr_variant = ns.curr_variant + 1 %}
+   {%- if (ns.curr_variant >= rp_variants) %}
+       {%- set ns.curr_variant = 0 %}
+       {%- set ns.curr_tree_in_bank = ns.curr_tree_in_bank + 1 %}
+       {%- if (ns.curr_tree_in_bank >= trees_per_bank) %}
+           {%- set  ns.curr_tree_in_bank = 0 %}
+           {%- set ns.curr_bank = ns.curr_bank + 1 %}
+       {%- endif %}
+   {%- endif %}
+{%- endfor %}
+{%- for tree_ip_bank in tree_ips_bank %}
+set module_{{tree_ip_bank.ibank}}_{{tree_ip_bank.itree}}_inst "top_system_i/tree_{{tree_ip_bank.ibank}}_{{tree_ip_bank.itree}}/inst/tree_bb"
+{%- endfor %}
+
+
+
+########################################################################
+### Configurations (Implementation) Definition
+########################################################################
+
+{%- for tree_ip_config in tree_ips_config %}
+
+set config "Config_{{tree_ip_config.iconfig}}"
+
+add_implementation $config
+set_attribute impl $config top             $top
+set_attribute impl $config pr.impl         1
+set_attribute impl $config implXDC         [list $xdcDir/top_system_pblock.xdc {{'\\'}}
+                                        ]
+set_attribute impl $config impl            ${run.prImpl} 
+   {%- if tree_ip_config.iconfig == 0%}
+set_attribute impl $config partitions      [list [list $static           $top           implement] {{'\\'}}
+   {%- else %}
+set_attribute impl $config partitions      [list [list $static           $top           import] {{'\\'}}
+   {%- endif %}
+{%- for tree_ip in tree_ip_config.tree_ips %}
+                                                [list [ if { [info exists module_{{tree_ip.ibank}}_{{tree_ip.itree}}_variant{{tree_ip_config.iconfig}}] == 1 } {set module_{{tree_ip.ibank}}_{{tree_ip.itree}}_variant{{tree_ip_config.iconfig}}} {set module_0_0_variant0} ] $module_{{tree_ip.ibank}}_{{tree_ip.itree}}_inst [ if { [info exists module_{{tree_ip.ibank}}_{{tree_ip.itree}}_variant{{tree_ip_config.iconfig}}] == 1 } {expr {{'{{implement}}}'}} {expr {{'{{greybox}}'}}} ]] {{'\\'}}
+{%- endfor %}
+                                         ]
+ set_attribute impl $config verify          ${run.prVerify} 
+ set_attribute impl $config bitstream       ${run.writeBitstream} 
+ set_attribute impl $config cfgmem.pcap     1
+{%- endfor %}
+
+
+
+####################################################################
+### Create Flat implementation run 
+####################################################################
+
+add_implementation Flat
+set_attribute impl Flat top          $top
+set_attribute impl Flat implXDC      [list $xdcDir/top_system_pblock.xdc {{'\\'}}
+                                    ]
+set_attribute impl Flat partitions   [list [list $static           $top           implement] {{'\\'}}
+{%- for tree_ip in tree_ips_bank %}
+                                                 [list $module_0_0_variant0 $module_{{tree_ip.ibank}}_{{tree_ip.itree}}_inst greybox] {{'\\'}}
+{%- endfor %}
+                                    ]
+set_attribute impl Flat impl         ${run.flatImpl}
+
+########################################################################
+### Task / flow portion
+########################################################################
+source $tclDir/run.tcl
+
+exit

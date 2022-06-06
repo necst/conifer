@@ -1,0 +1,40 @@
+#ifndef {{projectname|upper}}_H__
+#define {{projectname|upper}}_H__
+#include "BDT.h"
+#include "parameters.h"
+{%- if cfg_PDR %}
+#include "hls_stream.h"
+{%- endif%}
+
+
+{%- if not cfg_PDR %}
+{#- Monolithic IP #}
+void {{projectname}}(input_t *x, score_t *score/*, score_t tree_scores[BDT::fn_classes(n_classes) * n_trees]*/);
+{%- else %}
+{#- Reconfigurable set of IPs #}
+        
+{#- ENUMERTOR #}
+void {{projectname}}__enumerator(hls::stream<idless_input_arr_s_t> &input_stream, hls::stream<input_arr_s_t> &output_stream);
+
+{#- BANK BUFFER IP #}
+    {%- for ibank in range_bank_count %}
+void {{projectname}}__bank_buffer_{{ibank}}(hls::stream<input_arr_s_t> &input_stream, hls::stream<input_arr_s_t> &output_stream, hls::stream<bank_command_s_t> &command_stream);
+    {%- endfor %}
+{#- TREE IPs #}
+    {%- for tree_ip in tree_ips %}
+void {{projectname}}__tree_cl{{tree_ip.iclass}}_{{tree_ip.itree}}(hls::stream<input_arr_s_t> &input_stream, hls::stream<tree_score_s_t> &output_stream);
+    {%- endfor %}
+
+{#- IDLE TREE IP #}
+void {{projectname}}__tree_idle(hls::stream<input_arr_s_t> &input_stream, hls::stream<tree_score_s_t> &output_stream);
+
+{#- VOTE BUFFER IP #}
+void {{projectname}}__vote_buffer(hls::stream<tree_score_s_t> &input_stream, hls::stream<tree_score_s_t> &output_stream, bool &irq);
+
+{#- VOTING STATION IPs #}
+        {%- for iclass in range_class_count %}
+void {{projectname}}__voting_station_cl{{iclass}}(hls::stream<tree_score_s_t>  &input_score_stream, hls::stream<class_score_s_t> &output_score_stream);
+        {%- endfor %}
+{%- endif %}
+
+#endif

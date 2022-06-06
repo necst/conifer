@@ -13,16 +13,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set prj_dir [lindex $argv 0]
-set prj_name ## hls-fpga-machine-learning insert project-name
+if {$opt(reset)} {
+    open_solution -reset "{{the_ip}}"
+} else {
+    open_solution "{{the_ip}}"
+}
 
-open_project ${prj_dir}/${prj_name}.xpr
+set_part {{'{%s}'|format(XilinxPart)}}
+create_clock -period {{ClockPeriod}} -name default
+set_directive_top -name TOP_FUNCTION "{{projectname}}__{{the_ip}}"
 
-update_compile_order -fileset sources_1
-#TODO: Parametrize parallelism
-reset_run synth_1
-launch_runs synth_1 -jobs 2
-wait_on_run synth_1
-open_run synth_1 -name synth_1
-write_checkpoint ${prj_dir}/static_shell.dcp -force
-write_hw_platform -fixed -force -file ${prj_dir}/static_shell.xsa
+if {$opt(csim)} {
+    csim_design
+}
+
+if {$opt(synth)} {
+    csynth_design
+}
+
+if {$opt(cosim)} {
+    cosim_design -trace_level all
+}
+
+if {$opt(export)} {
+    export_design -format ip_catalog -description "{{projectname}}__{{the_ip}}" -display_name "{{projectname}}__{{the_ip}}" -ipname "{{the_ip}}" -library "{{projectname}}"
+}
+
+if {$opt(vsynth)} {
+    puts "NOT IMPLEMENTED YET"
+}
