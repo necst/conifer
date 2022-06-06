@@ -139,7 +139,7 @@ int main(int argc, char **argv)
       std::vector<float>::const_iterator in_end;
       input_arr_t x;
       in_end = in_begin + ({{n_features}});
-      {%- if not cfg_get %}
+      {%- if not cfg_PDR %}
       std::copy(in_begin, in_end, x);
       {%- else %}
       std::copy(in_begin, in_end, in_pkt.data);
@@ -150,33 +150,33 @@ int main(int argc, char **argv)
       score_t tree_scores[BDT::fn_classes(n_classes) * n_trees]{};
       {#- but we can still explicitly zero out if you want #}
       std::fill_n(score, {{n_classes}}, 0.);
-      {%- if cfg_get %}
+      {%- if cfg_PDR %}
       sample_stream[0] << in_pkt;
       {%- endif %}
       curr_id = (curr_id + 1) % max_parallel_samples;
       in_pkt.id = curr_id;
 
       //hls-fpga-machine-learning insert top-level-function 
-      {%- if not cfg_get %} 
-{{indent}}    {{projectname}}(x, score/*, tree_scores*/);
+      {%- if not cfg_PDR %} 
+    {{projectname}}(x, score/*, tree_scores*/);
       {%- else %}
           {#- // TODO: Use all the bank buffers and test reconfiguration #}
           {#- // TODO: Use vote buffers #}
-{{indent}}      bank_command_s_t command_pkt;
-{{top_level}}      {{inent}}command_pkt.data = 0b00111111;
-{{top_level}}      {{inent}}command_pkt.dest = 0;
-{{top_level}}      {{inent}}bank_command_stream[0] << command_pkt;
-{{top_level}}      {{inent}}{{projectname}}__bank_buffer_1(sample_stream[0], bank_stream[0], bank_command_stream[0]);
-{{top_level}}      {{inent}}axis_crossbar<input_arr_s_t, 1, n_trees * n_classes>(bank_stream, tree_stream);
+      bank_command_s_t command_pkt;
+      command_pkt.data = 0b00111111;
+      command_pkt.dest = 0;
+      bank_command_stream[0] << command_pkt;
+      {{projectname}}__bank_buffer_1(sample_stream[0], bank_stream[0], bank_command_stream[0]);
+      axis_crossbar<input_arr_s_t, 1, n_trees * n_classes>(bank_stream, tree_stream);
           {%- for tree_ip in tree_ips %}
-{{indent}}      {{projectname}}__tree_cl{{tree_ip.iclass}}_{{tree_ip.itree}}(tree_stream[{{tree_ip.itree}} * n_classes + {{tree_ip.iclass}}], aux_score_stream[{{tree_ip.itree}} * n_classes + {{tree_ip.iclass}}]);
-{{indent}}      tree_scores[{{tree_ip.itree}} * n_classes + {{tree_ip.iclass}}] = tee<tree_score_s_t, score_t>(aux_score_stream[{{tree_ip.itree}} * n_classes + {{tree_ip.iclass}}], score_stream[{{tree_ip.itree}} * n_classes + {{tree_ip.iclass}}]);        
+      {{projectname}}__tree_cl{{tree_ip.iclass}}_{{tree_ip.itree}}(tree_stream[{{tree_ip.itree}} * n_classes + {{tree_ip.iclass}}], aux_score_stream[{{tree_ip.itree}} * n_classes + {{tree_ip.iclass}}]);
+      tree_scores[{{tree_ip.itree}} * n_classes + {{tree_ip.iclass}}] = tee<tree_score_s_t, score_t>(aux_score_stream[{{tree_ip.itree}} * n_classes + {{tree_ip.iclass}}], score_stream[{{tree_ip.itree}} * n_classes + {{tree_ip.iclass}}]);        
           {%- endfor %}
-{{indent}}      axis_crossbar<tree_score_s_t, n_trees * n_classes, n_classes>(score_stream, in_class_stream);
+      axis_crossbar<tree_score_s_t, n_trees * n_classes, n_classes>(score_stream, in_class_stream);
           {%- for iclass in range(class_count) %}
-{{indent}}      while(!in_class_stream[{{iclass}}].empty()) {
-{{indent}}        {{projectname}}__voting_station_cl{{iclass}}(in_class_stream[{{iclass}}], out_class_stream[{{iclass}}]);
-{{indent}}      }
+      while(!in_class_stream[{{iclass}}].empty()) {
+        {{projectname}}__voting_station_cl{{iclass}}(in_class_stream[{{iclass}}], out_class_stream[{{iclass}}]);
+      }
           {%- endfor %}
       {%- endif %}
   
@@ -195,16 +195,16 @@ int main(int argc, char **argv)
     }
 
     //hls-fpga-machine-learning insert final-round
-    {%- if cfg_get %}
+    {%- if cfg_PDR %}
         {%- for iclass in range(class_count) %}
-{{indent}}    {{projectname}}__voting_station_cl{{iclass}}(in_class_stream[{{iclass}}], out_class_stream[{{iclass}}]);
+    {{projectname}}__voting_station_cl{{iclass}}(in_class_stream[{{iclass}}], out_class_stream[{{iclass}}]);
         {%- endfor%}
     {%- endif%}
   
     while(
       //hls-fpga-machine-learning insert stream-check
-      {%- if cfg_get %}
-{{indent}}{{'      '}}      
+      {%- if cfg_PDR %}
+{{'      '}}      
           {%- for iclass in range(class_count) -%}
  !out_class_stream[{{iclass}}].empty(){% if loop.last %}{% else %} && {% endif %}
           {%- endfor %}

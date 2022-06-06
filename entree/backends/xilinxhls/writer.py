@@ -23,7 +23,7 @@ import numpy as np
 import math
 import glob
 import zipfile
-from jinja2 import Environment, FileSystemLoader
+from . import templating_environment as env
 
 _TOOLS = {
     'vivadohls': 'vivado_hls',
@@ -73,6 +73,8 @@ def write(ensemble_dict, cfg):
     # TODO: Flexible bank sizing
     if cfg.get('PDR', False) == True:
         bank_count = int(cfg['Banks'])
+    else:
+        bank_count = 0
     
 
     os.makedirs('{}/firmware'.format(cfg['OutputDir']))
@@ -98,12 +100,6 @@ def write(ensemble_dict, cfg):
                     '{}/{}_reconfigurable_system/scripts/tcl/{}'.format(cfg['OutputDir'], cfg['ProjectName'], entry.name)
                 )
 
-    # Default clock:
-    if cfg.get('ClockPeriod', False) == False:
-        cfg['ClockPeriod'] = "5"
-
-    # Templates directory:
-    env = Environment(loader=FileSystemLoader(filedir))
     
     ###################
     # myproject.cpp
@@ -120,7 +116,7 @@ def write(ensemble_dict, cfg):
     
     template.stream(
         projectname=cfg['ProjectName'],
-        cfg_get=cfg.get('PDR', False),
+        cfg_PDR=cfg.get('PDR', False),
         bank_count=bank_count,
         tree_ips=tree_ips,
         range_bank_count=range(1, bank_count + 1),
@@ -148,7 +144,7 @@ def write(ensemble_dict, cfg):
     max_parallel_samples=6
     
     template.stream(
-        cfg_get_PDR=cfg.get('PDR', False),
+        cfg_PDR=cfg.get('PDR', False),
         Precision=cfg['Precision'],
         n_trees=ensemble_dict['n_trees'],
         max_depth=ensemble_dict['max_depth'],
@@ -180,7 +176,7 @@ def write(ensemble_dict, cfg):
              class_count = len(trees)
 
     template.stream(
-        cfg_get=cfg.get('PDR', False),
+        cfg_PDR=cfg.get('PDR', False),
         projectname=cfg['ProjectName'],
         range_bank_count=range(1, bank_count + 1),
         ensemble_trees=enumerate(ensemble_dict['trees']),
@@ -202,13 +198,12 @@ def write(ensemble_dict, cfg):
     template.stream(
         n_features=ensemble_dict['n_features'],
         n_classes=ensemble_dict['n_classes'],
-        cfg_get=cfg.get('PDR', False),
+        cfg_PDR=cfg.get('PDR', False),
         projectname=cfg['ProjectName'],
         class_count=class_count,
         tree_ips=tree_ips,
         enumerate_tree=enumerate(trees),
-        ensemble_trees=enumerate(ensemble_dict['trees']),
-        indent=''
+        ensemble_trees=enumerate(ensemble_dict['trees'])
     ).dump('{}/{}_test.cpp'.format(cfg['OutputDir'], cfg['ProjectName']))
 
 
@@ -232,7 +227,7 @@ def write(ensemble_dict, cfg):
         weights=False,
         tree_ips=tree_ips,
         range_class_count=range(class_count),
-        cfg_get=cfg.get('PDR', False),
+        cfg_PDR=cfg.get('PDR', False),
         range_bank_count=range(1, bank_count + 1)
     ).dump('{}/build_prj.tcl'.format(cfg['OutputDir']))
 

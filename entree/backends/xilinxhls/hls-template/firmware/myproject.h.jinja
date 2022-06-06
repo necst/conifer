@@ -2,12 +2,12 @@
 #define {{projectname|upper}}_H__
 #include "BDT.h"
 #include "parameters.h"
-{%- if cfg_get %}
+{%- if cfg_PDR %}
 #include "hls_stream.h"
 {%- endif%}
 
 
-{%- if not cfg_get %}
+{%- if not cfg_PDR %}
 {#- Monolithic IP #}
 void {{projectname}}(input_t *x, score_t *score/*, score_t tree_scores[BDT::fn_classes(n_classes) * n_trees]*/);
 {%- else %}
