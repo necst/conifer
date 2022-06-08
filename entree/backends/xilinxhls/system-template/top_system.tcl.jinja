@@ -284,13 +284,7 @@ set j_tree_in_class 0
 for {set i 0} {$i < $n_banks} {incr i} {
     for {set j 0} {$j < $n_trees_per_bank} {incr j} {	
 		create_bd_cell -type container -reference tree_rm_idle tree_rp_${i}_${j}
-		set_property -dict [list CONFIG.ENABLE_DFX {true}] [get_bd_cells tree_rp_${i}_${j}]		
-		if {$j_tree_in_class < [expr { [lindex $trees_in_class $i_class] - 1 }] } {
-			incr j_tree_in_class	
-		} else {
-			set j_tree_in_class 0
-			incr i_class
-		}
+		set_property -dict [list CONFIG.ENABLE_DFX {true}] [get_bd_cells tree_rp_${i}_${j}]
 	}
 }
 
