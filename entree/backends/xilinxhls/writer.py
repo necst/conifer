@@ -381,13 +381,30 @@ def write(ensemble_dict, cfg):
     #######################
     # top_system_pblock.tcl
     #######################
-    if cfg.get('PDR', False) == True and cfg.get('autoFloorplanning', False) == True:
+    if cfg.get('PDR', False) == True:
+        if cfg.get('autoFloorplanning', False) == True:
+            #TODO: implement autoFloorplanning
+            print("autoFloorplanning not implemented yet", file=sys.stderr)
         f = open(os.path.join(filedir, 'system-template/reconfigurable_system/constrs/{}.xdc'.format(cfg['XilinxPart'])), 'r')
         fout = open('{}/{}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(cfg['OutputDir'], cfg['ProjectName']) , 'w')
-        # TODO: add here what to do with the constraint used for floorplanning! 
-        # TODO: add jinja substitution for future parameters      
+
+        trees_per_bank = int(cfg['TreesPerBank'])
+
+        outputting_bank = False
+        outputting_tree = False
+
         for line in f.readlines():
-            fout.write(line)
+            if '## hls-fpga-machine-learning begin bank ' in line:
+                i_bank = int(line.replace('## hls-fpga-machine-learning begin bank ', ''))
+                outputting_bank = i_bank < bank_count
+                line = ''
+            elif '## hls-fpga-machine-learning begin tree ' in line and outputting_bank:
+                i_tree = int(line.replace('## hls-fpga-machine-learning begin tree ', ''))
+                outputting_tree = i_tree < trees_per_bank
+                line = ''
+            
+            if (outputting_bank and outputting_tree):
+                fout.write(line)
         
         f.close()
         fout.close()
