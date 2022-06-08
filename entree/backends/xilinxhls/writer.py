@@ -383,7 +383,7 @@ def write(ensemble_dict, cfg):
     #######################
     # top_system_pblock.tcl
     #######################
-    if cfg.get('autoFloorplanning', False) == True:
+    if cfg.get('PDR', False) == True and cfg.get('autoFloorplanning', False) == True:
         f = open(os.path.join(filedir, 'system-template/reconfigurable_system/constrs/{}.xdc'.format(cfg['XilinxPart'])), 'r')
         fout = open('{}/{}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(cfg['OutputDir'], cfg['ProjectName']) , 'w')
         # TODO: add here what to do with the constraint used for floorplanning! 
