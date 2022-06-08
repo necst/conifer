@@ -363,8 +363,6 @@ def write(ensemble_dict, cfg):
     # synth_and_impl.tcl
     #######################
         template = env.get_template('system-template/synth_and_impl.tcl.jinja')
-        # NOTE: for how the template is designed, runs are set correctly only when
-        # number of total trees is a multiple of number of tree slots in the architecture.
         template.stream(
                 projectname = cfg['ProjectName'],
                 XilinxPart = cfg['XilinxPart'],

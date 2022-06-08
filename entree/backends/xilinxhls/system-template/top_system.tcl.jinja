@@ -296,8 +296,6 @@ for {set i 0} {$i < $n_banks} {incr i} {
 
 
 # Assign the correct RMs to every single RP, using jinja
-# TODO: include tree_idle in every RP 
-
 {%- for i_rp in rm_in_rp_dict %}
 set_property -dict [list CONFIG.LIST_SYNTH_BD {
    {{- i_rp.rm| join(".bd:") + ".bd"  -}}
