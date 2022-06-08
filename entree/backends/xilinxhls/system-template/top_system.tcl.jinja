@@ -132,7 +132,7 @@ set oldCurInst [current_bd_instance .]
 # Create reconfigurable modules as block design containing single tree IPs
 # idle tree:
 create_bd_design tree_rm_idle
-create_bd_cell -type ip -vlnv xilinx.com:iris_PDR_Vivado_GB:tree_idle:1.0 tree_idle_0
+create_bd_cell -type ip -vlnv xilinx.com:{{projectname}}:tree_idle:1.0 tree_idle_0
 startgroup
 make_bd_intf_pins_external  [get_bd_intf_pins tree_idle_0/input_stream]
 make_bd_pins_external  [get_bd_pins tree_idle_0/ap_clk]
