@@ -371,7 +371,7 @@ def write(ensemble_dict, cfg):
                 rm_in_rp_dict = rm_in_rp_dict,
                 iter_cfgs = range( tree_count ),
                 iter_runs = range(int(n_total_trees / (n_trees_per_bank*n_banks))),
-                n_trees = n_trees,
+                n_total_trees = n_total_trees,
                 n_banks = bank_count,
                 nClasses = class_count,
                 nJobs = int(cfg['nJobs']),

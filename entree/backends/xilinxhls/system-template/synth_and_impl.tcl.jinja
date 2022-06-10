@@ -35,19 +35,21 @@ create_pr_configuration -name config_idle -partitions [list
 ]
 
 # TREE configurations
-{% for i_cfg in range(1,n_cfgs + 1) %}
+{% for i_cfg in range(1,n_cfgs + 1) -%}
 create_pr_configuration -name config_{{i_cfg}} -partitions [list
     {%- for i_rp in range(n_trees_per_bank*n_banks) -%}
         {%- if i_cfg < rm_in_rp_dict[i_rp]['rm']|length -%}
 {{' '}}top_system_i/{{rm_in_rp_dict[i_rp]['rp']}}:{{rm_in_rp_dict[i_rp]['rm'][i_cfg]}}_inst_0
         {%- endif -%}
     {%- endfor -%}
+    {%- if (n_total_trees % (n_banks * n_trees_per_bank)) != 0 -%}
 ] -greyboxes [list
     {%- for i_rp in range(n_trees_per_bank*n_banks) -%}
         {%- if i_cfg >= rm_in_rp_dict[i_rp]['rm']|length -%}
 {{' '}}top_system_i/{{rm_in_rp_dict[i_rp]['rp']}}
         {%- endif -%}
     {%- endfor -%}
+    {%- endif -%}
 ]
 {%- endfor %}
 
