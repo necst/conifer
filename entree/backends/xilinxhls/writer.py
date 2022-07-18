@@ -17,8 +17,8 @@
 # (https://github.com/thesps/conifer)
 
 import os
+import shutil
 import sys
-from shutil import copyfile
 import numpy as np
 import math
 import glob
@@ -79,9 +79,9 @@ def write(ensemble_dict, cfg):
 
     os.makedirs('{}/firmware'.format(cfg['OutputDir']))
     os.makedirs('{}/tb_data'.format(cfg['OutputDir']))
-    copyfile('{}/firmware/BDT.h'.format(filedir),
+    shutil.copyfile('{}/firmware/BDT.h'.format(filedir),
              '{}/firmware/BDT.h'.format(cfg['OutputDir']))
-    copyfile('{}/firmware/utils.h'.format(filedir),
+    shutil.copyfile('{}/firmware/utils.h'.format(filedir),
             '{}/firmware/utils.h'.format(cfg['OutputDir']))
     if cfg.get('PDR', False) == True:
         os.makedirs('{}/{}_reconfigurable_system'.format(cfg['OutputDir'], cfg['ProjectName']))
@@ -95,7 +95,7 @@ def write(ensemble_dict, cfg):
         os.makedirs('{}/{}_reconfigurable_system/scripts/tcl'.format(cfg['OutputDir'], cfg['ProjectName']))
         for entry in os.scandir('{}/system-template/reconfigurable_system/scripts/tcl'.format(filedir)):
             if entry.is_file():
-                copyfile(
+                shutil.copyfile(
                     entry.path, 
                     '{}/{}_reconfigurable_system/scripts/tcl/{}'.format(cfg['OutputDir'], cfg['ProjectName'], entry.name)
                 )
@@ -295,24 +295,17 @@ def write(ensemble_dict, cfg):
         ).dump('{}/build_pdr_ips/enumerator.tcl'.format(cfg['OutputDir']))
 
     #######################
-    # build_tree_wrapper.tcl
-    #######################
-
-    if cfg.get('PDR', False) == True:
-
-        template = env.get_template('system-template/tree_wrapper.tcl.jinja')
-
-        template.stream(
-                projectname=cfg['ProjectName'],
-                XilinxPart=cfg['XilinxPart'],
-                XilinxBoard=cfg['XilinxBoard']
-        ).dump('{}/build_tree_wrapper.tcl'.format(cfg['OutputDir']))
-        
-
-
-    #######################
     # build_system_bd.tcl
     #######################
+    
+    # create list that counts for each class the nuber of trees
+    trees_in_class = []
+    for itree, trees in enumerate(ensemble_dict['trees']):
+        for iclass, tree in enumerate(trees): 
+            if itree == 0 :
+                trees_in_class.append(1)
+            else:
+                trees_in_class[iclass] += 1
 
     if cfg.get('PDR', False) == True:
 
@@ -320,85 +313,78 @@ def write(ensemble_dict, cfg):
 
         precision = int(cfg['Precision'].split('<')[1].split(',')[0])
 
+        # Set tree_rp and tree_rm
+        n_banks = int(cfg['Banks'])
+        n_trees_per_bank = int(cfg['TreesPerBank'])
+        n_classes = int(ensemble_dict['n_classes'])
+        n_trees = int(ensemble_dict['n_trees'])
+        n_total_trees = 0
+        for i in range(n_classes):
+            n_total_trees += trees_in_class[i]     
+
+        rm_in_rp_list = [[] for i in range(n_banks*n_trees_per_bank)]
+        counter = 0
+
+        for i in range(n_banks):
+            for j in range(n_trees_per_bank):
+                rm_in_rp_list[i * n_trees_per_bank + j].append("tree_rm_idle")
+       
+        for i in range(n_classes):
+            for j in range(trees_in_class[i]):
+                rm_in_rp_list[counter].append("tree_rm_{}_{}".format(i,j))
+                if counter == (n_trees_per_bank * n_banks) - 1:
+                    counter = 0
+                else:
+                    counter += 1
+        counter = 0
+        rm_in_rp_dict = []
+
+        for i in range(n_banks):
+            for j in range(n_trees_per_bank):
+                rm_in_rp_dict.append({ "rp": "tree_rp_{}_{}".format(i,j) , "rm": rm_in_rp_list[counter]  })
+                counter += 1
 
         template.stream(
-                projectname=cfg['ProjectName'],
-                XilinxPart=cfg['XilinxPart'],
-                XilinxBoard=cfg['XilinxBoard'],
-                TreesPerBank=int(cfg['TreesPerBank']),
-                bank_count=bank_count,
-                class_count=class_count,
-                max_parallel_samples=max_parallel_samples,
-                num1=int((2**math.ceil(math.log(precision, 2)))*ensemble_dict['n_features']),
-                num2=int(8*math.ceil(precision)/8),
-                num3=int(2**math.ceil(math.log(8*(math.ceil(precision)/8), 2))),
-                num4=int(math.ceil(math.log(int(max_parallel_samples), 2))+1)
+                projectname = cfg['ProjectName'],
+                XilinxPart = cfg['XilinxPart'],
+                XilinxBoard = cfg['XilinxBoard'],
+                TreesPerBank = int(cfg['TreesPerBank']),
+                nBanks = bank_count,
+                nClasses = class_count,
+                TreesInClass = trees_in_class,
+                rm_in_rp_dict = rm_in_rp_dict,
+                SampleLength = int((2**math.ceil(math.log(precision, 2)))*ensemble_dict['n_features']),
+                ResultLength = int(8*math.ceil(precision)/8),
+                OutputLength = int(2**math.ceil(math.log(8*(math.ceil(precision)/8), 2))),
+                IDLength = int(math.ceil(math.log(int(max_parallel_samples), 2))+1)
         ).dump('{}/build_system_bd.tcl'.format(cfg['OutputDir']))
         
-
-
     #######################
-    # build_tree_wrapper.tcl
+    # synth_and_impl.tcl
     #######################
-
-    if cfg.get('PDR', False) == True:
-
-        template = env.get_template('system-template/tree_wrapper.tcl.jinja')
-
+        template = env.get_template('system-template/synth_and_impl.tcl.jinja')
         template.stream(
-                projectname=cfg['ProjectName'],
-                XilinxPart=cfg['XilinxPart'],
-                XilinxBoard=cfg['XilinxBoard']
-        ).dump('{}/build_tree_wrapper.tcl'.format(cfg['OutputDir']))
-
-    #######################
-    # synth_static_shell.tcl
-    #######################
-
-    if cfg.get('PDR', False) == True:
-        
-        template = env.get_template('system-template/static_shell.tcl.jinja')
-        
-        template.stream(
-                projectname=cfg['ProjectName']
-        ).dump('{}/synth_static_shell.tcl'.format(cfg['OutputDir']))
-        
-
-    #######################
-    # design.tcl
-    #######################
-    if cfg.get('PDR', False) == True:
-        
-        template = env.get_template('system-template/reconfigurable_system/scripts/design.tcl.jinja')
-        
-        trees_per_bank = int(cfg['TreesPerBank'])
-        rp_variants = math.ceil(tree_count / (trees_per_bank * bank_count))
-
-        tree_ips_bank=[]
-        for ibank in range(bank_count):
-            for itree in range(trees_per_bank):
-                    tree_ips_bank.append({"ibank":ibank,"itree": itree})
-        
-        tree_ips_config=[]
-        for iconfig in range(rp_variants):
-                    tree_ips_config.append({"iconfig":iconfig,"tree_ips":tree_ips_bank})
-
-        template.stream(
-                projectname=cfg['ProjectName'],
-                XilinxPart=cfg['XilinxPart'],
-                XilinxBoard=cfg['XilinxBoard'],
-                trees_per_bank=trees_per_bank,
-                tree_ips=tree_ips,
-                tree_ips_bank=tree_ips_bank,
-                tree_ips_config=tree_ips_config,
-                rp_variants=rp_variants 
-        ).dump('{}/{}_reconfigurable_system/scripts/design.tcl'.format(cfg['OutputDir'], cfg['ProjectName']) )
+                projectname = cfg['ProjectName'],
+                XilinxPart = cfg['XilinxPart'],
+                XilinxBoard = cfg['XilinxBoard'],
+                n_trees_per_bank = int(cfg['TreesPerBank']),
+                rm_in_rp_dict = rm_in_rp_dict,
+                iter_cfgs = range( tree_count ),
+                iter_runs = range(int(n_total_trees / (n_trees_per_bank*n_banks))),
+                n_total_trees = n_total_trees,
+                n_banks = bank_count,
+                nClasses = class_count,
+                nJobs = int(cfg['nJobs']),
+                n_cfgs = math.ceil((n_total_trees / (n_trees_per_bank*n_banks)))
+        ).dump('{}/synth_and_impl.tcl'.format(cfg['OutputDir'], cfg['ProjectName']) )
 
     #######################
     # top_system_pblock.tcl
     #######################
-
     if cfg.get('PDR', False) == True:
+        if cfg.get('autoFloorplanning', False) == True:
+            #TODO: implement autoFloorplanning
+            print("autoFloorplanning not implemented yet", file=sys.stderr)
         f = open(os.path.join(filedir, 'system-template/reconfigurable_system/constrs/{}.xdc'.format(cfg['XilinxPart'])), 'r')
         fout = open('{}/{}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(cfg['OutputDir'], cfg['ProjectName']) , 'w')
 
@@ -427,9 +413,11 @@ def auto_config():
     config = {'ProjectName': 'my_prj',
               'OutputDir': 'my-entree-prj',
               'Precision': 'ap_fixed<18,8>',
-              'XilinxPart': 'xcvu9p-flgb2104-2L-e',
+              'XilinxPart': 'xczu3eg-sbva484-1-i',
               'ClockPeriod': '5',
-              'PDR': False}
+              'PDR': False,
+              'nJobs': str(os.cpu_count() - 2),
+              'autoFloorplanning': True }
     return config
 
 
@@ -473,7 +461,6 @@ def sim_compile(config):
 def build(config, reset=False, csim=False, synth=True, cosim=False, export=False):
     cwd = os.getcwd()
     os.chdir(config['OutputDir'])
-
     hls_tool = get_hls()
     if hls_tool == None:
         print("No HLS in PATH. Did you source the appropriate Xilinx Toolchain?")
@@ -491,14 +478,6 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
         sys.exit(-6)
 
     if config.get('PDR', False) == True:
-        # Create Tree Wrapper Project
-        cmd = 'vivado -nojournal -nolog -mode batch -source build_tree_wrapper.tcl -tclargs {prj} $(pwd)/{prj} $(pwd)/{hls}'.format(prj=config['ProjectName']+'_tree_wrapper', hls=config['ProjectName']+'_prj')
-        print(cmd)
-        success = os.system(cmd)
-        if(success > 0):
-            print("'build' failed")
-            sys.exit(-7)
-
         # Create System Project
         cmd = 'vivado -nojournal -nolog -mode batch -source build_system_bd.tcl -tclargs {prj} $(pwd)/{prj} $(pwd)/{hls}'.format(prj=config['ProjectName']+'_system', hls=config['ProjectName']+'_prj')
         print(cmd)
@@ -506,71 +485,35 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
         if(success > 0):
             print("'build' failed")
             sys.exit(-8)
-
-        # Enabling Black-Box Synthesis
-        for file in glob.glob('./{}/**/synth/tree_wrapper_tree_*.v'.format(config['ProjectName']+'_system'), recursive=True):
-            print(file)
-
-            local_name = os.path.basename(os.path.dirname(os.path.dirname(file)))
-            global_name = os.path.basename(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(file))))) + '_' + local_name
-
-            with open(file, 'r') as original_file:
-                with open('./{}/srcs/hdl/{}.v'.format(config['ProjectName']+'_reconfigurable_system', global_name), 'w') as dest_file:
-                    for line in original_file.readlines():
-                        if not ('(* black_box="true" *)' in line):
-                            line = line.replace(local_name, global_name)
-                            dest_file.write(line)
-
-            os.rename(file, file+'.bak')
-            f = open(file+'.bak', 'r')
-            fout = open(file, 'w')
-            for line in f.readlines():
-                    if line.startswith('module tree_'):
-                            line = '(* black_box="true" *)\n' + line
-                    
-                    fout.write(line)
-            f.close()
-            fout.close()
-            
-        cmd = 'vivado -nojournal -nolog -mode batch -source synth_static_shell.tcl -tclargs $(pwd)/{prj}'.format(prj=config['ProjectName']+'_system')
+        
+        # Create configurations and runs synthesis, implementation and write bitstreams
+        cmd = 'vivado -nojournal -nolog -mode batch -source synth_and_impl.tcl -tclargs {prj} $(pwd)/{prj} $(pwd)/{prjname}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(prj=config['ProjectName']+'_system', prjname=config['ProjectName'])
         print(cmd)
         success = os.system(cmd)
         if(success > 0):
-            print("'static shell's synth failed")
+            print("synthesis or implementation failed")
             sys.exit(-9)
 
-        # Prepare source files for reconfiguration
-        print("START PREPARING FOR RECONFIG...")
+        # Set destination folder and move there bitstreams and .hwh files
+        current = os.getcwd()
+        os.mkdir('{}/exports'.format(current))
+        destination = '{}/exports'.format(current)
+        # move .bit files to the destination folder 
+        source = '{}/{}_system/{}_system.runs'.format(current, config['ProjectName'], config['ProjectName'], config['ProjectName'])
+        for i in os.listdir(source):
+            if ('impl_1' in i) or ('child_' in i):
+                for j in os.listdir('{}/{}'.format(source,i)):
+                    if '.bit' in j:
+                        shutil.copyfile('{}/{}/{}'.format(source,i,j), '{}/{}'.format(destination,j))
+        # move .hwh files to destination folder, renaming with same names of .bit
+        source = '{}/{}_system/{}_system.gen/sources_1/bd'.format(current, config['ProjectName'], config['ProjectName'], config['ProjectName'])
+        for i in os.listdir(source):
+            if 'tree_rm' in i:
+                for j in os.listdir(destination):
+                    if i in j and '.bit' in j:
+                        j = j.replace('.bit','.hwh')
+                        shutil.copyfile('{}/{}/hw_handoff/{}.hwh'.format(source,i,i),'{}/{}'.format(destination,j))
+        source = '{}/{}_system/{}_system.gen/sources_1/bd/top_system/hw_handoff/top_system.hwh'.format(current, config['ProjectName'], config['ProjectName'], config['ProjectName'])
+        shutil.copyfile(source, '{}/top_system_wrapper.hwh'.format(destination))
 
-        # Gathering Static Shell dcp
-        copyfile('./{}/static_shell.dcp'.format(config['ProjectName']+'_system'), 
-        './{}/srcs/dcp/static_shell.dcp'.format(config['ProjectName']+'_reconfigurable_system'))
-        
-        # Extracting RM IPs
-        ip_srcs = './{}/srcs/ip'.format(config['ProjectName']+'_reconfigurable_system')
-
-        for ip_archive in glob.iglob('./{}/tree_*/impl/export.zip'.format(config['ProjectName']+'_prj')):
-            ip_name = os.path.basename(os.path.dirname(os.path.dirname(ip_archive)))
-            with zipfile.ZipFile(ip_archive, 'r') as zip_ref:
-                zip_ref.extractall(path=ip_srcs + '/' + ip_name)
-
-        # Generating IP PRJs
-        prevOutDir = os.getcwd()
-        os.chdir('./{}/'.format(config['ProjectName']+'_reconfigurable_system'))
-        wrapper_sources = glob.glob('./srcs/hdl/*.v')
-        for ip_folder in glob.iglob('./srcs/ip/tree_*'):
-            ip_name = os.path.basename(ip_folder)
-            ip_sources = glob.glob('{}/hdl/verilog/*.v'.format(ip_folder))
-            with open('./srcs/prj/{}.prj'.format(ip_name), 'w') as dest_file:
-                    for line in map(lambda x: 'verilog xil_defaultLib ' + x, ip_sources + wrapper_sources):
-                        dest_file.write(line + '\n')
-
-        cmd = 'vivado -nojournal -nolog -mode batch -source scripts/design.tcl'
-        print(cmd)
-        success = os.system(cmd)
-        if(success > 0):
-            print("'reconfig synth failed")
-            sys.exit(-10)
-
-        os.chdir(prevOutDir)
     os.chdir(cwd)

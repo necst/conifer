@@ -1,0 +1,79 @@
+################################################################
+# COMMAND-LINE ARGUMENTS
+################################################################
+set prj_root  [lindex $argv 0]
+set prj_dir [lindex $argv 1]
+set xdc_dir [lindex $argv 2]
+set prj_name {{projectname}}_system
+set prj_part {{XilinxPart}}
+set prj_board {{XilinxBoard}}
+set n_classes {{nClasses}}
+set n_banks {{n_banks}}
+set n_trees_per_bank {{n_trees_per_bank}}
+set n_jobs {{nJobs}}
+set n_cfgs {{n_cfgs}}
+
+open_project ${prj_dir}/${prj_root}.xpr
+update_compile_order -fileset sources_1
+open_bd_design ${prj_dir}/${prj_root}.srcs/sources_1/bd/top_system/top_system.bd
+
+
+# generate output products for every element in the design
+generate_target all [get_files  ${prj_dir}/${prj_root}.srcs/sources_1/bd/top_system/top_system.bd]
+export_ip_user_files -of_objects [get_files ${prj_dir}/${prj_root}.srcs/sources_1/bd/top_system/top_system.bd] -no_script -sync -force -quiet
+create_ip_run [get_files -of_objects [get_fileset sources_1] ${prj_dir}/${prj_root}.srcs/sources_1/bd/top_system/top_system.bd]
+launch_runs top_system_* -jobs ${n_jobs}
+
+
+# DFX wizard: set configurations and configuration runs
+# configuration instead of three (that BTW are created ion a wrong way)
+# IDLE configuration
+create_pr_configuration -name config_idle -partitions [list
+{%- for i_rp in range(n_trees_per_bank*n_banks) -%}
+{{' '}}top_system_i/{{rm_in_rp_dict[i_rp]['rp']}}:tree_rm_idle_inst_{{i_rp}}
+{%- endfor -%}
+]
+
+# TREE configurations
+{%- set ns = namespace(need_greyboxes=false) -%}
+{% for i_cfg in range(1,n_cfgs + 1) %}
+{% set ns.need_greyboxes=false -%}
+create_pr_configuration -name config_{{i_cfg}} -partitions [list
+    {%- for i_rp in range(n_trees_per_bank*n_banks) -%}
+        {%- if i_cfg < rm_in_rp_dict[i_rp]['rm']|length -%}
+{{' '}}top_system_i/{{rm_in_rp_dict[i_rp]['rp']}}:{{rm_in_rp_dict[i_rp]['rm'][i_cfg]}}_inst_0
+        {%- else -%}
+{%- set ns.need_greyboxes = true -%}
+        {%- endif -%}
+    {%- endfor -%}
+    {%- if ns.need_greyboxes -%}
+] -greyboxes [list
+    {%- for i_rp in range(n_trees_per_bank*n_banks) -%}
+        {%- if i_cfg >= rm_in_rp_dict[i_rp]['rm']|length -%}
+{{' '}}top_system_i/{{rm_in_rp_dict[i_rp]['rp']}}
+        {%- endif -%}
+    {%- endfor -%}
+    {%- endif -%}
+]
+{%- endfor %}
+
+set_property PR_CONFIGURATION config_idle [get_runs impl_1]
+{%- for i_cfg in range(1,n_cfgs + 1) %}
+create_run child_{{i_cfg-1}}_impl_1 -parent_run impl_1 -flow {Vivado Implementation 2021} -pr_config config_{{i_cfg}}
+{%- endfor%}
+
+# launch synthesis
+launch_runs synth_1 -jobs ${n_jobs}
+wait_on_run synth_1
+
+# open synthesized design and add constraint
+open_run synth_1 -name synth_1 -pr_config [current_pr_configuration]
+add_files -fileset constrs_1 -norecurse ${xdc_dir}
+import_files -fileset constrs_1 ${xdc_dir}
+create_ip_run [get_files -of_objects [get_fileset sources_1] ${prj_dir}/${prj_root}.srcs/sources_1/bd/top_system/top_system.bd]
+refresh_design
+
+# launch implementation and bitstream write
+reset_run synth_1
+launch_runs impl_1 {% for i_cfg in range(0,n_cfgs) %}child_{{i_cfg}}_impl_1 {% endfor %}-to_step write_bitstream -jobs ${n_jobs}
+wait_on_run impl_1 {% for i_cfg in range(0,n_cfgs) %}child_{{i_cfg}}_impl_1 {% endfor %}

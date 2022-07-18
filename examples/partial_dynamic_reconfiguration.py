@@ -32,8 +32,8 @@ cfg['OutputDir'] = 'prj_{}'.format(
     # int(datetime.datetime.now().timestamp())
     cfg['ProjectName']
 )
-cfg['XilinxPart'] = "xc7z020clg400-1"
-cfg['XilinxBoard'] = "tul.com.tw:pynq-z2:part0:1.0"
+cfg['XilinxPart'] = "xczu3eg-sbva484-1-i"
+cfg['XilinxBoard'] = "avnet.com:ultra96v2:part0:1.2"
 cfg['ClockPeriod'] = "10"
 cfg['PDR'] = True
 cfg['Banks'] = "2"
