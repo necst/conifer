@@ -21,6 +21,8 @@ import shutil
 import sys
 import numpy as np
 import math
+import subprocess
+import pandas as pd
 import glob
 import zipfile
 from . import templating_environment as env
@@ -75,7 +77,7 @@ def write(ensemble_dict, cfg):
         bank_count = int(cfg['Banks'])
     else:
         bank_count = 0
-    
+
 
     os.makedirs('{}/firmware'.format(cfg['OutputDir']))
     os.makedirs('{}/tb_data'.format(cfg['OutputDir']))
@@ -96,24 +98,24 @@ def write(ensemble_dict, cfg):
         for entry in os.scandir('{}/system-template/reconfigurable_system/scripts/tcl'.format(filedir)):
             if entry.is_file():
                 shutil.copyfile(
-                    entry.path, 
+                    entry.path,
                     '{}/{}_reconfigurable_system/scripts/tcl/{}'.format(cfg['OutputDir'], cfg['ProjectName'], entry.name)
                 )
 
-    
+
     ###################
     # myproject.cpp
     ###################
 
     template = env.get_template('hls-template/firmware/myproject.cpp.jinja')
-    
+
     tree_ips=[]
     # loop over trees
     for itree, trees in enumerate(ensemble_dict['trees']):
         # loop over classes
         for iclass, tree in enumerate(trees):
                 tree_ips.append({"itree": itree, "trees": trees, "iclass": iclass, "tree": tree})
-    
+
     template.stream(
         projectname=cfg['ProjectName'],
         cfg_PDR=cfg.get('PDR', False),
@@ -122,13 +124,13 @@ def write(ensemble_dict, cfg):
         range_bank_count=range(1, bank_count + 1),
         class_count=class_count
     ).dump('{}/firmware/{}.cpp'.format(cfg['OutputDir'], cfg['ProjectName']))
-    
+
     ###################
     # parameters.h
     ###################
 
     template = env.get_template('hls-template/firmware/parameters.h.jinja')
-    
+
     tree_fields = ['feature', 'threshold', 'value',
                'children_left', 'children_right', 'parent']
 
@@ -140,9 +142,9 @@ def write(ensemble_dict, cfg):
             # loop over fields
             for ifield, field in enumerate(tree_fields):
                 tree_ips_fields.append({"itree": itree, "trees": trees, "iclass": iclass, "tree": tree,"ifield": ifield, "field": field,"map_tree": tree[field]})
-    
+
     max_parallel_samples=6
-    
+
     template.stream(
         cfg_PDR=cfg.get('PDR', False),
         Precision=cfg['Precision'],
@@ -165,7 +167,7 @@ def write(ensemble_dict, cfg):
     #######################
     # myproject.h
     #######################
-  
+
 
     template = env.get_template('hls-template/firmware/myproject.h.jinja')
 
@@ -236,17 +238,17 @@ def write(ensemble_dict, cfg):
         os.mkdir('{}/build_pdr_ips'.format(cfg['OutputDir']))
         for ibank in range(1, bank_count + 1):
             template = env.get_template('hls-template/build_pdr_ip.tcl.jinja')
-            
+
             template.stream(
                 projectname=cfg['ProjectName'],
                 XilinxPart=cfg['XilinxPart'],
                 ClockPeriod=cfg['ClockPeriod'],
                 the_ip='bank_buffer_{}'.format(ibank)
             ).dump('{}/build_pdr_ips/bank_buffer_{}.tcl'.format(cfg['OutputDir'], ibank))
-        
+
         # class
         for itree, trees in enumerate(ensemble_dict['trees']):
-            for iclass, tree in enumerate(trees): 
+            for iclass, tree in enumerate(trees):
                 template=env.get_template('hls-template/build_pdr_ip.tcl.jinja')
 
                 template.stream(
@@ -255,7 +257,7 @@ def write(ensemble_dict, cfg):
                     ClockPeriod=cfg['ClockPeriod'],
                     the_ip='tree_cl{}_{}'.format(iclass, itree)
                 ).dump('{}/build_pdr_ips/tree_cl{}_{}.tcl'.format(cfg['OutputDir'], iclass, itree))
-        
+
         # voting station
         for iclass in range(class_count):
             template=env.get_template('hls-template/build_pdr_ip.tcl.jinja')
@@ -297,11 +299,11 @@ def write(ensemble_dict, cfg):
     #######################
     # build_system_bd.tcl
     #######################
-    
-    # create list that counts for each class the nuber of trees
+
+    # create list that counts for each class the number of trees
     trees_in_class = []
     for itree, trees in enumerate(ensemble_dict['trees']):
-        for iclass, tree in enumerate(trees): 
+        for iclass, tree in enumerate(trees):
             if itree == 0 :
                 trees_in_class.append(1)
             else:
@@ -320,29 +322,44 @@ def write(ensemble_dict, cfg):
         n_trees = int(ensemble_dict['n_trees'])
         n_total_trees = 0
         for i in range(n_classes):
-            n_total_trees += trees_in_class[i]     
+            n_total_trees += trees_in_class[i]
 
-        rm_in_rp_list = [[] for i in range(n_banks*n_trees_per_bank)]
-        counter = 0
 
-        for i in range(n_banks):
-            for j in range(n_trees_per_bank):
-                rm_in_rp_list[i * n_trees_per_bank + j].append("tree_rm_idle")
-       
-        for i in range(n_classes):
-            for j in range(trees_in_class[i]):
-                rm_in_rp_list[counter].append("tree_rm_{}_{}".format(i,j))
-                if counter == (n_trees_per_bank * n_banks) - 1:
-                    counter = 0
-                else:
-                    counter += 1
-        counter = 0
-        rm_in_rp_dict = []
 
-        for i in range(n_banks):
-            for j in range(n_trees_per_bank):
-                rm_in_rp_dict.append({ "rp": "tree_rp_{}_{}".format(i,j) , "rm": rm_in_rp_list[counter]  })
-                counter += 1
+        floorplanner_path = '{}/{}_reconfigurable_system/entreefloorplanner.jar'.format(cfg['OutputDir'], cfg['ProjectName'])
+        runs_dir = '/home/locav/Pubblici/x_lorenzo/iris_PDR_Vivado_GB_3_2_ap_fixed_16_8_MAX_system/iris_PDR_Vivado_GB_3_2_ap_fixed_16_8_MAX_system.runs' # FIXME
+        csv_path = '{}/{}_reconfigurable_system/trees_info.csv'.format(cfg['OutputDir'], cfg['ProjectName'])
+        constr_dir = '{}/{}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(cfg['OutputDir'], cfg['ProjectName'])
+        global_pblocks = '{}/{}_reconfigurable_system/global_pblocks.txt'.format(cfg['OutputDir'], cfg['ProjectName'])
+
+
+        # Auto floorplanning
+        for i in range(10):
+            subprocess.call(['java', '-jar', floorplanner_path,
+                             str(n_banks * n_trees_per_bank),  # Number of partitions
+                             str(n_banks),  # Number of banks
+                             runs_dir,  # RUNS dir
+                             constr_dir,  # CSV path
+                             csv_path,  # CONSTR path
+                             global_pblocks])
+
+        df = pd.read_csv(csv_path)
+        print(df.to_string())
+        trees = df[df.columns[0]].tolist()
+        col = []
+        for c in df.columns:
+            col.append(c)
+        col.pop(0)
+
+        rm_in_rp_dict = dict.fromkeys(col)
+
+        for i in rm_in_rp_dict:
+            rm_in_rp_dict[i] = []
+            rm_in_rp_dict[i].append("tree_rm_idle")
+            for k in range(int(n_total_trees / (n_banks * n_trees_per_bank))):
+                rm_in_rp_dict[i].append(trees[0])
+                trees.pop(0)
+        print(rm_in_rp_dict)
 
         template.stream(
                 projectname = cfg['ProjectName'],
@@ -358,7 +375,7 @@ def write(ensemble_dict, cfg):
                 OutputLength = int(2**math.ceil(math.log(8*(math.ceil(precision)/8), 2))),
                 IDLength = int(math.ceil(math.log(int(max_parallel_samples), 2))+1)
         ).dump('{}/build_system_bd.tcl'.format(cfg['OutputDir']))
-        
+
     #######################
     # synth_and_impl.tcl
     #######################
@@ -386,7 +403,7 @@ def write(ensemble_dict, cfg):
             #TODO: implement autoFloorplanning
             print("autoFloorplanning not implemented yet", file=sys.stderr)
         f = open(os.path.join(filedir, 'system-template/reconfigurable_system/constrs/{}.xdc'.format(cfg['XilinxPart'])), 'r')
-        fout = open('{}/{}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(cfg['OutputDir'], cfg['ProjectName']) , 'w')
+        fout = open('{}/{}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(cfg['OutputDir'], cfg['ProjectName']), 'w')
 
         trees_per_bank = int(cfg['TreesPerBank'])
 
@@ -402,10 +419,10 @@ def write(ensemble_dict, cfg):
                 i_tree = int(line.replace('## hls-fpga-machine-learning begin tree ', ''))
                 outputting_tree = i_tree < trees_per_bank
                 line = ''
-            
+
             if (outputting_bank and outputting_tree):
                 fout.write(line)
-        
+
         f.close()
         fout.close()
 
@@ -485,7 +502,7 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
         if(success > 0):
             print("'build' failed")
             sys.exit(-8)
-        
+
         # Create configurations and runs synthesis, implementation and write bitstreams
         cmd = 'vivado -nojournal -nolog -mode batch -source synth_and_impl.tcl -tclargs {prj} $(pwd)/{prj} $(pwd)/{prjname}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(prj=config['ProjectName']+'_system', prjname=config['ProjectName'])
         print(cmd)
@@ -498,7 +515,7 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
         current = os.getcwd()
         os.mkdir('{}/exports'.format(current))
         destination = '{}/exports'.format(current)
-        # move .bit files to the destination folder 
+        # move .bit files to the destination folder
         source = '{}/{}_system/{}_system.runs'.format(current, config['ProjectName'], config['ProjectName'], config['ProjectName'])
         for i in os.listdir(source):
             if ('impl_1' in i) or ('child_' in i):
