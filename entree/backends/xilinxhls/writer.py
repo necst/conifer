@@ -309,7 +309,6 @@ def write(ensemble_dict, cfg):
 
     if cfg.get('PDR', False) == True:
 
-        template = env.get_template('system-template/top_system.tcl.jinja')
 
         precision = int(cfg['Precision'].split('<')[1].split(',')[0])
 
@@ -344,6 +343,25 @@ def write(ensemble_dict, cfg):
                 rm_in_rp_dict.append({ "rp": "tree_rp_{}_{}".format(i,j) , "rm": rm_in_rp_list[counter]  })
                 counter += 1
 
+        template = env.get_template('system-template/rm_gen.tcl.jinja')
+        template.stream(
+                projectname = cfg['ProjectName'],
+                XilinxPart = cfg['XilinxPart'],
+                XilinxBoard = cfg['XilinxBoard'],
+                TreesPerBank = int(cfg['TreesPerBank']),
+                nBanks = bank_count,
+                nClasses = class_count,
+                TreesInClass = trees_in_class,
+                rm_in_rp_dict = rm_in_rp_dict,
+                SampleLength = int((2**math.ceil(math.log(precision, 2)))*ensemble_dict['n_features']),
+                ResultLength = int(8*math.ceil(precision)/8),
+                OutputLength = int(2**math.ceil(math.log(8*(math.ceil(precision)/8), 2))),
+                nJobs = int(cfg['nJobs']),
+                IDLength = int(math.ceil(math.log(int(max_parallel_samples), 2))+1)
+        ).dump('{}/rm_gen.tcl'.format(cfg['OutputDir']))
+
+
+        template = env.get_template('system-template/top_system.tcl.jinja')
         template.stream(
                 projectname = cfg['ProjectName'],
                 XilinxPart = cfg['XilinxPart'],
@@ -478,6 +496,14 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
         sys.exit(-6)
 
     if config.get('PDR', False) == True:
+        # Create System Project
+        cmd = 'vivado -nojournal -nolog -mode batch -source rm_gen.tcl -tclargs {prj} $(pwd)/{prj} $(pwd)/{hls}'.format(prj=config['ProjectName']+'_system', hls=config['ProjectName']+'_prj')
+        print(cmd)
+        success = os.system(cmd)
+        if(success > 0):
+            print("RM generation")
+            sys.exit(-10)
+
         # Create System Project
         cmd = 'vivado -nojournal -nolog -mode batch -source build_system_bd.tcl -tclargs {prj} $(pwd)/{prj} $(pwd)/{hls}'.format(prj=config['ProjectName']+'_system', hls=config['ProjectName']+'_prj')
         print(cmd)
