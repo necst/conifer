@@ -325,8 +325,8 @@ def write(ensemble_dict, cfg):
 
 
 
-        floorplanner_path = '{}/{}_reconfigurable_system/entreefloorplanner.jar'.format(cfg['OutputDir'], cfg['ProjectName'])
-        runs_dir = '/home/locav/Pubblici/x_lorenzo/iris_PDR_Vivado_GB_3_2_ap_fixed_16_8_MAX_system/iris_PDR_Vivado_GB_3_2_ap_fixed_16_8_MAX_system.runs' # FIXME
+        floorplanner_path = '{}/entreefloorplanner.jar'.format(filedir)
+        runs_dir = '{}/{}_system/{}_system.runs'.format(cfg['OutputDir'], cfg['ProjectName'], cfg['ProjectName'])
         csv_path = '{}/{}_reconfigurable_system/trees_info.csv'.format(cfg['OutputDir'], cfg['ProjectName'])
         constr_dir = '{}/{}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(cfg['OutputDir'], cfg['ProjectName'])
         global_pblocks = '{}/{}_reconfigurable_system/global_pblocks.txt'.format(cfg['OutputDir'], cfg['ProjectName'])

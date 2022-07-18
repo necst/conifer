@@ -38,7 +38,7 @@ setup(
     url='https://github.com/necst/entree_aspdac22',
     packages=find_packages(),
     package_data=find_package_data_in_folders({
-        'entree.backends.xilinxhls': ['firmware/**/*', 'hls-template/**/*', 'system-template/**/*']
+        'entree.backends.xilinxhls': ['firmware/**/*', 'hls-template/**/*', 'system-template/**/*', 'tools/**/*']
     }),
     include_package_data=True,
     classifiers=[
@@ -46,6 +46,7 @@ setup(
     ],
     python_requires='>=3.6',
     install_requires=[
-        'numpy'
+        'numpy',
+        'pandas',
     ]
 )
