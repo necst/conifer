@@ -324,8 +324,9 @@ def write(ensemble_dict, cfg):
             n_total_trees += trees_in_class[i]
 
 
+        #FIXME: This won't work! Must be moved to build.
 
-        floorplanner_path = '{}/entreefloorplanner.jar'.format(filedir)
+        floorplanner_path = '{}/tools/entreefloorplanner.jar'.format(filedir)
         runs_dir = '{}/{}_system/{}_system.runs'.format(cfg['OutputDir'], cfg['ProjectName'], cfg['ProjectName'])
         csv_path = '{}/{}_reconfigurable_system/trees_info.csv'.format(cfg['OutputDir'], cfg['ProjectName'])
         constr_dir = '{}/{}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(cfg['OutputDir'], cfg['ProjectName'])
