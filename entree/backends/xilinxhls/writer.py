@@ -456,7 +456,7 @@ def sim_compile(config):
     return
 
 
-def build(config, reset=False, csim=False, synth=True, cosim=False, export=False):
+def build(config, reset=False, csim=False, synth=True, cosim=False, export=False, ensembleDict = None):
     cwd = os.getcwd()
     os.chdir(config['OutputDir'])
     hls_tool = get_hls()
@@ -492,7 +492,10 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
             global_pblocks = '{}/{}_reconfigurable_system/global_pblocks.txt'.format(config['OutputDir'], config['ProjectName'])
 
             trees_in_class = []
-            for itree, trees in enumerate(ensemble_dict['trees']):
+            if ensembleDict is None:
+                print('No ensemble dictionary provided, failing')
+                sys.exit(-11)
+            for itree, trees in enumerate(ensembleDict['trees']):
                 for iclass, tree in enumerate(trees):
                     if itree == 0 :
                         trees_in_class.append(1)
@@ -507,7 +510,7 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
                 n_total_trees += trees_in_class[i]
 
             # Auto floorplanning
-            for i in range(10):
+            for i in range(10): # FIXME .wait
                 subprocess.call(['java', '-jar', floorplanner_path,
                                 str(n_banks * n_trees_per_bank),  # Number of partitions
                                 str(n_banks),  # Number of banks
@@ -532,6 +535,32 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
                 for k in range(int(n_total_trees / (n_banks * n_trees_per_bank))):
                     rm_in_rp_dict[i].append(trees[0])
                     trees.pop(0)
+            
+            # TCL generation
+            f = open("/{}}/{}}/set_property.tcl", "w")
+            for key in rm_in_rp_dict:
+                f.write('set_property -dict [list CONFIG.LIST_SYNTH_BD {')
+                for value in rm_in_rp_dict[key]:
+                    if value == rm_in_rp_dict[key][-1]:
+                        f.write(value + '.bd' + '} ')
+                    else:
+                        f.write(value + '.bd' + ':')
+                f.write('CONFIG.LIST_SIM_BD {')
+                for value in rm_in_rp_dict[key]:
+                    if value == rm_in_rp_dict[key][-1]:
+                        f.write(value + '.bd' + '}] ')
+                    else:
+                        f.write(value + '.bd' + ':')
+                f.write('[get_bd_cells /' + key + ']\n')
+            f.close()
+            f = open("/{}/{}}/create_pr_configuration.tcl", "w")
+            for i in range(1, int(n_total_trees / (n_banks * n_trees_per_bank) + 1)):
+                f.write('create_pr_configuration -name config_' + str(i) + ' -partitions [list ')
+                for key in rm_in_rp_dict:
+                    f.write(' top_system_i/' + rm_in_rp_dict[key][i])
+                f.write(']\n')
+            f.close()
+
 
         # Create System Project
         cmd = 'vivado -nojournal -nolog -mode batch -source build_system_bd.tcl -tclargs {prj} $(pwd)/{prj} $(pwd)/{hls}'.format(prj=config['ProjectName']+'_system', hls=config['ProjectName']+'_prj')
