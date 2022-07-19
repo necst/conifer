@@ -22,29 +22,6 @@
 # IP Integrator Tcl commands easier.
 ################################################################
 
-namespace eval _tcl {
-proc get_script_folder {} {
-   set script_path [file normalize [info script]]
-   set script_folder [file dirname $script_path]
-   return $script_folder
-}
-}
-variable script_folder
-set script_folder [_tcl::get_script_folder]
-
-################################################################
-# Check if script is running in correct Vivado version.
-################################################################
-set scripts_vivado_version 2021.2
-set current_vivado_version [version -short]
-
-if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
-   puts ""
-   catch {common::send_gid_msg -ssname BD::TCL -id 2041 -severity "ERROR" "This script was generated using Vivado <$scripts_vivado_version> and is being run in <$current_vivado_version> of Vivado. Please run the script in Vivado <$scripts_vivado_version> then open the design in Vivado <$current_vivado_version>. Upgrade the design by running \"Tools => Report => Report IP Status...\", then run write_bd_tcl to create an updated script."}
-
-   return 1
-}
-
 ################################################################
 # COMMAND-LINE ARGUMENTS
 ################################################################
@@ -72,6 +49,10 @@ set id_length {{IDLength}}
 # START
 ################################################################
 
+open_project ${prj_dir}/${prj_root}.xpr
+update_compile_order -fileset sources_1
+open_bd_design ${prj_dir}/${prj_root}.srcs/sources_1/bd/top_system/top_system.bd
+
 # To test this script, run the following commands from Vivado Tcl console:
 # source design_1_script.tcl
 
@@ -80,10 +61,6 @@ set id_length {{IDLength}}
 # <./myproj/project_1.xpr> in the current working folder.
 
 #set list_projs [get_projects -quiet]
-#if { $list_projs eq "" } {
-   create_project -force ${prj_name} ${prj_dir} -part ${prj_part}
-   set_property BOARD_PART ${prj_board} [current_project]
-#}
 
 
 
@@ -93,7 +70,6 @@ set design_name top_system
 
 common::send_gid_msg -ssname BD::TCL -id 2003 -severity "INFO" "Currently there is no design <$design_name> in project, so creating one..."
 
-create_bd_design $design_name
 
 common::send_gid_msg -ssname BD::TCL -id 2004 -severity "INFO" "Making design <$design_name> as current_bd_design."
 current_bd_design $design_name
@@ -105,7 +81,7 @@ set bCheckIPsPassed 1
 
 set parentCell ""
 
-variable script_folder
+
 variable design_name
 
 if { $parentCell eq "" } {
@@ -129,41 +105,6 @@ if { $parentObj == "" } {
 # Save current instance; Restore later
 set oldCurInst [current_bd_instance .]
 
-# Create reconfigurable modules as block design containing single tree IPs
-# idle tree:
-create_bd_design tree_rm_idle
-create_bd_cell -type ip -vlnv xilinx.com:{{projectname}}:tree_idle:1.0 tree_idle_0
-startgroup
-make_bd_intf_pins_external  [get_bd_intf_pins tree_idle_0/input_stream]
-make_bd_pins_external  [get_bd_pins tree_idle_0/ap_clk]
-make_bd_pins_external  [get_bd_pins tree_idle_0/ap_rst_n]
-make_bd_intf_pins_external  [get_bd_intf_pins tree_idle_0/output_stream]
-endgroup
-set_property name input_stream [get_bd_intf_ports input_stream_0]
-set_property name ap_clk [get_bd_ports ap_clk_0]
-set_property name ap_rst_n [get_bd_ports ap_rst_n_0]
-set_property name output_stream [get_bd_intf_ports output_stream_0]
-validate_bd_design
-save_bd_design
-# trees:
-for {set i 0} {$i < $n_classes} {incr i} {
-   for {set j 0} {$j < [lindex $trees_in_class $i]} {incr j} {
-      create_bd_design tree_rm_${i}_${j}
-      create_bd_cell -type ip -vlnv xilinx.com:{{projectname}}:tree_cl${i}_${j}:1.0 tree_cl${i}_${j}_0
-      startgroup
-      make_bd_intf_pins_external  [get_bd_intf_pins tree_cl${i}_${j}_0/input_stream]
-      make_bd_pins_external  [get_bd_pins tree_cl${i}_${j}_0/ap_clk]
-      make_bd_pins_external  [get_bd_pins tree_cl${i}_${j}_0/ap_rst_n]
-      make_bd_intf_pins_external  [get_bd_intf_pins tree_cl${i}_${j}_0/output_stream]
-      endgroup
-      set_property name input_stream [get_bd_intf_ports input_stream_0]
-      set_property name ap_clk [get_bd_ports ap_clk_0]
-      set_property name ap_rst_n [get_bd_ports ap_rst_n_0]
-      set_property name output_stream [get_bd_intf_ports output_stream_0]
-      validate_bd_design
-      save_bd_design
-   }
-}
 
 current_bd_design $design_name
 # Set parent object as current
