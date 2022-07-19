@@ -25,6 +25,8 @@ import subprocess
 import pandas as pd
 import glob
 import zipfile
+
+from sklearn import ensemble
 from . import templating_environment as env
 
 _TOOLS = {
@@ -32,7 +34,7 @@ _TOOLS = {
     'vitishls': 'vitis_hls'
 }
 
-
+filedir = os.path.dirname(os.path.abspath(__file__))
 
 def get_tool_exe_in_path(tool):
     if tool not in _TOOLS.keys():
@@ -62,8 +64,6 @@ def get_hls():
 
 
 def write(ensemble_dict, cfg):
-
-    filedir = os.path.dirname(os.path.abspath(__file__))
 
     tree_count = 0
     class_count = 1
@@ -323,44 +323,6 @@ def write(ensemble_dict, cfg):
         for i in range(n_classes):
             n_total_trees += trees_in_class[i]
 
-
-        #FIXME: This won't work! Must be moved to build.
-
-        floorplanner_path = '{}/tools/entreefloorplanner.jar'.format(filedir)
-        runs_dir = '{}/{}_system/{}_system.runs'.format(cfg['OutputDir'], cfg['ProjectName'], cfg['ProjectName'])
-        csv_path = '{}/{}_reconfigurable_system/trees_info.csv'.format(cfg['OutputDir'], cfg['ProjectName'])
-        constr_dir = '{}/{}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(cfg['OutputDir'], cfg['ProjectName'])
-        global_pblocks = '{}/{}_reconfigurable_system/global_pblocks.txt'.format(cfg['OutputDir'], cfg['ProjectName'])
-
-
-        # Auto floorplanning
-        for i in range(10):
-            subprocess.call(['java', '-jar', floorplanner_path,
-                             str(n_banks * n_trees_per_bank),  # Number of partitions
-                             str(n_banks),  # Number of banks
-                             runs_dir,  # RUNS dir
-                             constr_dir,  # CSV path
-                             csv_path,  # CONSTR path
-                             global_pblocks])
-
-        df = pd.read_csv(csv_path)
-        print(df.to_string())
-        trees = df[df.columns[0]].tolist()
-        col = []
-        for c in df.columns:
-            col.append(c)
-        col.pop(0)
-
-        rm_in_rp_dict = dict.fromkeys(col)
-
-        for i in rm_in_rp_dict:
-            rm_in_rp_dict[i] = []
-            rm_in_rp_dict[i].append("tree_rm_idle")
-            for k in range(int(n_total_trees / (n_banks * n_trees_per_bank))):
-                rm_in_rp_dict[i].append(trees[0])
-                trees.pop(0)
-        print(rm_in_rp_dict)
-
         template = env.get_template('system-template/rm_gen.tcl.jinja')
         template.stream(
                 projectname = cfg['ProjectName'],
@@ -370,7 +332,7 @@ def write(ensemble_dict, cfg):
                 nBanks = bank_count,
                 nClasses = class_count,
                 TreesInClass = trees_in_class,
-                rm_in_rp_dict = rm_in_rp_dict,
+                # rm_in_rp_dict = rm_in_rp_dict,
                 SampleLength = int((2**math.ceil(math.log(precision, 2)))*ensemble_dict['n_features']),
                 ResultLength = int(8*math.ceil(precision)/8),
                 OutputLength = int(2**math.ceil(math.log(8*(math.ceil(precision)/8), 2))),
@@ -388,7 +350,7 @@ def write(ensemble_dict, cfg):
                 nBanks = bank_count,
                 nClasses = class_count,
                 TreesInClass = trees_in_class,
-                rm_in_rp_dict = rm_in_rp_dict,
+                # rm_in_rp_dict = rm_in_rp_dict,
                 SampleLength = int((2**math.ceil(math.log(precision, 2)))*ensemble_dict['n_features']),
                 ResultLength = int(8*math.ceil(precision)/8),
                 OutputLength = int(2**math.ceil(math.log(8*(math.ceil(precision)/8), 2))),
@@ -404,7 +366,7 @@ def write(ensemble_dict, cfg):
                 XilinxPart = cfg['XilinxPart'],
                 XilinxBoard = cfg['XilinxBoard'],
                 n_trees_per_bank = int(cfg['TreesPerBank']),
-                rm_in_rp_dict = rm_in_rp_dict,
+                # rm_in_rp_dict = rm_in_rp_dict,
                 iter_cfgs = range( tree_count ),
                 iter_runs = range(int(n_total_trees / (n_trees_per_bank*n_banks))),
                 n_total_trees = n_total_trees,
@@ -418,9 +380,9 @@ def write(ensemble_dict, cfg):
     # top_system_pblock.tcl
     #######################
     if cfg.get('PDR', False) == True:
-        if cfg.get('autoFloorplanning', False) == True:
+        # if cfg.get('autoFloorplanning', False) == True:
             #TODO: implement autoFloorplanning
-            print("autoFloorplanning not implemented yet", file=sys.stderr)
+            # print("autoFloorplanning not implemented yet", file=sys.stderr)
         f = open(os.path.join(filedir, 'system-template/reconfigurable_system/constrs/{}.xdc'.format(cfg['XilinxPart'])), 'r')
         fout = open('{}/{}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(cfg['OutputDir'], cfg['ProjectName']), 'w')
 
@@ -521,6 +483,55 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
         if(success > 0):
             print("RM generation")
             sys.exit(-10)
+        
+        if config.get('autoFloorplanning', False) == True:
+            floorplanner_path = '{}/tools/entreefloorplanner.jar'.format(filedir)
+            runs_dir = '{}/{}_system/{}_system.runs'.format(config['OutputDir'], config['ProjectName'], config['ProjectName'])
+            csv_path = '{}/{}_reconfigurable_system/trees_info.csv'.format(config['OutputDir'], config['ProjectName'])
+            constr_dir = '{}/{}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(config['OutputDir'], config['ProjectName'])
+            global_pblocks = '{}/{}_reconfigurable_system/global_pblocks.txt'.format(config['OutputDir'], config['ProjectName'])
+
+            trees_in_class = []
+            for itree, trees in enumerate(ensemble_dict['trees']):
+                for iclass, tree in enumerate(trees):
+                    if itree == 0 :
+                        trees_in_class.append(1)
+                    else:
+                        trees_in_class[iclass] += 1
+
+            n_banks = int(config['Banks'])
+            n_trees_per_bank = int(config['TreesPerBank'])
+            n_classes = int(config['n_classes'])
+            n_total_trees = 0
+            for i in range(n_classes):
+                n_total_trees += trees_in_class[i]
+
+            # Auto floorplanning
+            for i in range(10):
+                subprocess.call(['java', '-jar', floorplanner_path,
+                                str(n_banks * n_trees_per_bank),  # Number of partitions
+                                str(n_banks),  # Number of banks
+                                runs_dir,  # RUNS dir
+                                constr_dir,  # CSV path
+                                csv_path,  # CONSTR path
+                                global_pblocks])
+
+            df = pd.read_csv(csv_path)
+            print(df.to_string())
+            trees = df[df.columns[0]].tolist()
+            col = []
+            for c in df.columns:
+                col.append(c)
+            col.pop(0)
+
+            rm_in_rp_dict = dict.fromkeys(col)
+
+            for i in rm_in_rp_dict:
+                rm_in_rp_dict[i] = []
+                rm_in_rp_dict[i].append("tree_rm_idle")
+                for k in range(int(n_total_trees / (n_banks * n_trees_per_bank))):
+                    rm_in_rp_dict[i].append(trees[0])
+                    trees.pop(0)
 
         # Create System Project
         cmd = 'vivado -nojournal -nolog -mode batch -source build_system_bd.tcl -tclargs {prj} $(pwd)/{prj} $(pwd)/{hls}'.format(prj=config['ProjectName']+'_system', hls=config['ProjectName']+'_prj')
