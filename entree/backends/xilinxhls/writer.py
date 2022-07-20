@@ -510,14 +510,8 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
             global_pblocks = '{}/{}_reconfigurable_system/global_pblocks.txt'.format(config['OutputDir'], config['ProjectName'])
 
             # Auto floorplanning
-            for i in range(10): # FIXME .wait
-                subprocess.call(['java', '-jar', floorplanner_path,
-                                str(n_banks * n_trees_per_bank),  # Number of partitions
-                                str(n_banks),  # Number of banks
-                                runs_dir,  # RUNS dir
-                                constr_dir,  # CSV path
-                                csv_path,  # CONSTR path
-                                global_pblocks])
+            for i in range(10):
+                subprocess.call(['java', '-jar', floorplanner_path, str(n_banks * n_trees_per_bank), str(n_banks), runs_dir, constr_dir, csv_path, global_pblocks])
 
             df = pd.read_csv(csv_path)
             print(df.to_string())
