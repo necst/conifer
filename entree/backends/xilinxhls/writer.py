@@ -483,6 +483,24 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
         if(success > 0):
             print("RM generation")
             sys.exit(-10)
+
+        trees_in_class = []
+        if ensembleDict is None:
+            print('No ensemble dictionary provided, failing')
+            sys.exit(-11)
+        for itree, trees in enumerate(ensembleDict['trees']):
+            for iclass, tree in enumerate(trees):
+                if itree == 0 :
+                    trees_in_class.append(1)
+                else:
+                    trees_in_class[iclass] += 1
+
+        n_banks = int(config['Banks'])
+        n_trees_per_bank = int(config['TreesPerBank'])
+        n_classes = int(config['n_classes'])
+        n_total_trees = 0
+        for i in range(n_classes):
+            n_total_trees += trees_in_class[i]
         
         if config.get('autoFloorplanning', False) == True:
             floorplanner_path = '{}/tools/entreefloorplanner.jar'.format(filedir)
@@ -490,24 +508,6 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
             csv_path = '{}/{}_reconfigurable_system/trees_info.csv'.format(config['OutputDir'], config['ProjectName'])
             constr_dir = '{}/{}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(config['OutputDir'], config['ProjectName'])
             global_pblocks = '{}/{}_reconfigurable_system/global_pblocks.txt'.format(config['OutputDir'], config['ProjectName'])
-
-            trees_in_class = []
-            if ensembleDict is None:
-                print('No ensemble dictionary provided, failing')
-                sys.exit(-11)
-            for itree, trees in enumerate(ensembleDict['trees']):
-                for iclass, tree in enumerate(trees):
-                    if itree == 0 :
-                        trees_in_class.append(1)
-                    else:
-                        trees_in_class[iclass] += 1
-
-            n_banks = int(config['Banks'])
-            n_trees_per_bank = int(config['TreesPerBank'])
-            n_classes = int(config['n_classes'])
-            n_total_trees = 0
-            for i in range(n_classes):
-                n_total_trees += trees_in_class[i]
 
             # Auto floorplanning
             for i in range(10): # FIXME .wait
@@ -524,7 +524,7 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
             trees = df[df.columns[0]].tolist()
             col = []
             for c in df.columns:
-                col.append(c)
+                col.append(c.replace('pblock_', ''))
             col.pop(0)
 
             rm_in_rp_dict = dict.fromkeys(col)
@@ -537,7 +537,7 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
                     trees.pop(0)
             
             # TCL generation
-            f = open("/{}}/{}}/set_property.tcl", "w")
+            f = open("{}/dfx_setup.tcl".format(config['OutputDir']), "w")
             for key in rm_in_rp_dict:
                 f.write('set_property -dict [list CONFIG.LIST_SYNTH_BD {')
                 for value in rm_in_rp_dict[key]:
@@ -553,14 +553,85 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
                         f.write(value + '.bd' + ':')
                 f.write('[get_bd_cells /' + key + ']\n')
             f.close()
-            f = open("/{}/{}}/create_pr_configuration.tcl", "w")
+            f = open("{}/create_configs.tcl".format(config['OutputDir']), "w")
+
+            f.write('create_pr_configuration -name config_idle -partitions [list')
+            counter = 0
+            for key in rm_in_rp_dict:
+                f.write(' top_system_i/' + key + ':tree_rm_idle_inst_' + counter)
+                counter += 1
+            f.write('\n')
+
             for i in range(1, int(n_total_trees / (n_banks * n_trees_per_bank) + 1)):
                 f.write('create_pr_configuration -name config_' + str(i) + ' -partitions [list ')
                 for key in rm_in_rp_dict:
-                    f.write(' top_system_i/' + rm_in_rp_dict[key][i])
+                    f.write(' top_system_i/' + key + ':' + rm_in_rp_dict[key][i])
                 f.write(']\n')
             f.close()
+        else:
+        
+            rm_in_rp_list = [[] for i in range(n_banks*n_trees_per_bank)]
+            counter = 0
 
+            for i in range(n_banks):
+                for j in range(n_trees_per_bank):
+                    rm_in_rp_list[i * n_trees_per_bank + j].append("tree_rm_idle")
+        
+            for i in range(n_classes):
+                for j in range(trees_in_class[i]):
+                    rm_in_rp_list[counter].append("tree_rm_{}_{}".format(i,j))
+                    if counter == (n_trees_per_bank * n_banks) - 1:
+                        counter = 0
+                    else:
+                        counter += 1
+            counter = 0
+            rm_in_rp_dict = []
+
+            for i in range(n_banks):
+                for j in range(n_trees_per_bank):
+                    rm_in_rp_dict.append({ "rp": "tree_rp_{}_{}".format(i,j) , "rm": rm_in_rp_list[counter]  })
+                    counter += 1
+            
+            f = open("{}/dfx_setup.tcl".format(config['OutputDir']), "w")
+            for key in rm_in_rp_dict:
+                f.write('set_property -dict [list CONFIG.LIST_SYNTH_BD {')
+                for value in rm_in_rp_dict[key]:
+                    if value == rm_in_rp_dict[key][-1]:
+                        f.write(value + '.bd' + '} ')
+                    else:
+                        f.write(value + '.bd' + ':')
+                f.write('CONFIG.LIST_SIM_BD {')
+                for value in rm_in_rp_dict[key]:
+                    if value == rm_in_rp_dict[key][-1]:
+                        f.write(value + '.bd' + '}] ')
+                    else:
+                        f.write(value + '.bd' + ':')
+                f.write('[get_bd_cells /' + key + ']\n')
+            f.close()
+
+            f = open("{}/create_configs.tcl".format(config['OutputDir']), "w")
+
+            f.write('create_pr_configuration -name config_idle -partitions [list')
+            counter = 0
+            for key in rm_in_rp_dict:
+                f.write(' top_system_i/' + rm_in_rp_dict[key]['rp'] + ':tree_rm_idle_inst_' + counter)
+                counter += 1
+            f.write('\n')
+
+            need_greyboxes = False
+            n_cfgs = math.ceil(n_total_trees / (n_banks * n_trees_per_bank))
+            for i_cfg in range(1, n_cfgs + 1):
+                need_greyboxes = False
+                for i_rp in range(n_trees_per_bank * n_banks):
+                    if i_cfg < len(rm_in_rp_dict[i_rp]['rm']):
+                        f.write(' top_system_i/{}:{}_inst_0'.format(rm_in_rp_dict[i_rp]['rp'], rm_in_rp_dict[i_rp]['rm'][i_cfg]))
+                    else:
+                        need_greyboxes = True
+                        f.write(' -greyboxes [list')
+                        for i_rp in range(n_banks*n_trees_per_bank):
+                            if i_cfg >= len(rm_in_rp_dict[i_rp]['rm']):
+                                f.write(' top_system_i/{}'.format(rm_in_rp_dict[i_rp]['rp']))
+                    f.write(']\n')
 
         # Create System Project
         cmd = 'vivado -nojournal -nolog -mode batch -source build_system_bd.tcl -tclargs {prj} $(pwd)/{prj} $(pwd)/{hls}'.format(prj=config['ProjectName']+'_system', hls=config['ProjectName']+'_prj')
