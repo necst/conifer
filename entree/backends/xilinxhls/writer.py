@@ -504,10 +504,10 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
         
         if config.get('autoFloorplanning', False) == True:
             floorplanner_path = '{}/tools/entreefloorplanner.jar'.format(filedir)
-            runs_dir = '{}/{}_system/{}_system.runs'.format(config['OutputDir'], config['ProjectName'], config['ProjectName'])
-            csv_path = '{}/{}_reconfigurable_system/trees_info.csv'.format(config['OutputDir'], config['ProjectName'])
-            constr_dir = '{}/{}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(config['OutputDir'], config['ProjectName'])
-            global_pblocks = '{}/{}_reconfigurable_system/global_pblocks.txt'.format(config['OutputDir'], config['ProjectName'])
+            runs_dir = '{}_system/{}_system.runs'.format(config['ProjectName'], config['ProjectName'])
+            csv_path = '{}_reconfigurable_system/trees_info.csv'.format(config['ProjectName'])
+            constr_dir = '{}_reconfigurable_system/constrs/top_system_pblock.xdc'.format(config['ProjectName'])
+            global_pblocks = '{}_reconfigurable_system/global_pblocks.txt'.format(config['ProjectName'])
 
             # Auto floorplanning
             for i in range(10):
