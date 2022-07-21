@@ -497,7 +497,7 @@ def build(config, reset=False, csim=False, synth=True, cosim=False, export=False
 
         n_banks = int(config['Banks'])
         n_trees_per_bank = int(config['TreesPerBank'])
-        n_classes = int(config['n_classes'])
+        n_classes = int(ensembleDict['n_classes'])
         n_total_trees = 0
         for i in range(n_classes):
             n_total_trees += trees_in_class[i]
