@@ -35,7 +35,7 @@ class model:
         return self.backend.decision_function(X, self.config, trees=trees)
 
     def build(self, **kwargs):
-        self.backend.build(self.config, **kwargs)
+        self.backend.build(self.config, ensembleDict = self._ensembleDict, **kwargs)
 
     def profile(self, bins=50, return_data=False, return_figure=True):
         try:
